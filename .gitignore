@@ -1,0 +1,64 @@
+########################################
+# Backend - Java / Spring Boot / Maven
+########################################
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/*.jar
+backend/*.war
+backend/*.class
+
+# Fichiers de configuration sensibles (mots de passe DB, etc.)
+backend/src/main/resources/application-local.properties
+backend/src/main/resources/application-local.yml
+**/application-secret*.properties
+**/application-secret*.yml
+.env
+
+########################################
+# Frontend - React
+########################################
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.eslintcache
+
+########################################
+# MySQL / Base de données
+########################################
+*.sql.backup
+*.db
+/db-data/
+mysql-data/
+
+########################################
+# IDE - IntelliJ / Eclipse / VS Code
+########################################
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+*.launch
+
+########################################
+# OS
+########################################
+.DS_Store
+Thumbs.db
+
+########################################
+# Divers
+########################################
+*.log
+*.tmp
+.cache/
+.claude/
