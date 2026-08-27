@@ -55,9 +55,21 @@ public class ImportFormateurService {
         try (Workbook wb = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);
 
+            // Excel laisse souvent des dizaines de milliers de lignes "utilisées"
+            // (mise en forme) bien après les vraies données : on arrête après une
+            // longue série de lignes vides pour éviter un import qui tourne pendant
+            // des heures sur un fichier mal formé.
+            int lignesVidesConsecutives = 0;
+            final int MAX_LIGNES_VIDES_CONSECUTIVES = 200;
+
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (row == null) { ignores++; continue; }
+                if (row == null) {
+                    ignores++;
+                    lignesVidesConsecutives++;
+                    if (lignesVidesConsecutives >= MAX_LIGNES_VIDES_CONSECUTIVES) break;
+                    continue;
+                }
 
                 String nom         = get(row, 0);
                 String prenom      = get(row, 1);
@@ -68,7 +80,13 @@ public class ImportFormateurService {
                 String groupeName  = get(row, 6);
 
                 // Ligne vide → ignorer
-                if (nom.isBlank() && email.isBlank()) { ignores++; continue; }
+                if (nom.isBlank() && email.isBlank()) {
+                    ignores++;
+                    lignesVidesConsecutives++;
+                    if (lignesVidesConsecutives >= MAX_LIGNES_VIDES_CONSECUTIVES) break;
+                    continue;
+                }
+                lignesVidesConsecutives = 0;
                 if (email.isBlank()) {
                     log.warn("Ligne {} ignorée : email manquant", i + 1);
                     erreurs++;

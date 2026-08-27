@@ -38,9 +38,20 @@ public class ImportService {
             // Chercher la ligne d'en-tête (première ligne non vide)
             int startRow = 1; // par défaut on saute la ligne 0 (en-têtes)
 
+            // Excel laisse souvent des dizaines de milliers de lignes "utilisées"
+            // (mise en forme) bien après les vraies données : on arrête après une
+            // longue série de lignes vides pour éviter un import qui tourne pendant
+            // des heures sur un fichier mal formé.
+            int lignesVidesConsecutives = 0;
+            final int MAX_LIGNES_VIDES_CONSECUTIVES = 200;
+
             for (int i = startRow; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (row == null) continue;
+                if (row == null) {
+                    lignesVidesConsecutives++;
+                    if (lignesVidesConsecutives >= MAX_LIGNES_VIDES_CONSECUTIVES) break;
+                    continue;
+                }
 
                 String nomFiliere    = getCellValue(row, 0);
                 String anneeStr      = getCellValue(row, 1);
@@ -51,8 +62,11 @@ public class ImportService {
                 // Ignorer les lignes vides
                 if (nomFiliere.isBlank() && nomModule.isBlank()) {
                     lignesIgnorees++;
+                    lignesVidesConsecutives++;
+                    if (lignesVidesConsecutives >= MAX_LIGNES_VIDES_CONSECUTIVES) break;
                     continue;
                 }
+                lignesVidesConsecutives = 0;
                 if (nomFiliere.isBlank() || nomModule.isBlank()) {
                     lignesIgnorees++;
                     continue;

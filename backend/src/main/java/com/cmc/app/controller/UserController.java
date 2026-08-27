@@ -1,6 +1,7 @@
 package com.cmc.app.controller;
 
 import com.cmc.app.dto.request.CreateUserRequest;
+import com.cmc.app.dto.request.UpdateUserRequest;
 import com.cmc.app.dto.response.ApiResponse;
 import com.cmc.app.dto.response.PageResponse;
 import com.cmc.app.dto.response.UserResponse;
@@ -65,6 +66,16 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR') or #id == authentication.principal.id")
     public ResponseEntity<ApiResponse<UserResponse>> findById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(userService.findById(id)));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<UserResponse>> update(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateUserRequest request,
+            @AuthenticationPrincipal User admin) {
+        return ResponseEntity.ok(ApiResponse.success("Stagiaire modifié avec succès",
+                userService.updateUser(id, request, admin)));
     }
 
     @PatchMapping("/{id}/toggle-actif")
