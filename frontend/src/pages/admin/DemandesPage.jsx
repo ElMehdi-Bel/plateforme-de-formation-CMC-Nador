@@ -14,11 +14,12 @@ const statutBadge = {
 }
 
 const typeDemande = {
-  ATTESTATION_INSCRIPTION: "Attestation d'inscription",
-  ATTESTATION_STAGE:       'Attestation de stage',
-  RELEVE_NOTES:            'Relevé de notes',
-  CERTIFICAT_PRESENCE:     'Certificat de présence',
-  AUTRE:                   'Autre',
+  ATTESTATION_INSCRIPTION:         "Attestation d'inscription",
+  ATTESTATION_STAGE:               'Attestation de stage',
+  ATTESTATION_POURSUITE_FORMATION: 'Attestation de poursuite de formation',
+  RELEVE_NOTES:                    'Relevé de notes',
+  CERTIFICAT_PRESENCE:             'Certificat de présence',
+  AUTRE:                           'Autre',
 }
 
 export default function DemandesPage() {

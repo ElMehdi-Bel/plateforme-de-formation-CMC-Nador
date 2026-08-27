@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Search, UserCheck, UserX, Upload, Mail, FileSpreadsheet } from 'lucide-react'
+import { Plus, Search, UserCheck, UserX, Upload, Mail, FileSpreadsheet, Pencil } from 'lucide-react'
 import { userService } from '../../services/userService'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
@@ -11,6 +11,23 @@ import toast from 'react-hot-toast'
 import { groupeService } from '../../services/filiereService'
 import api from '../../services/api'
 
+const NIVEAU_OPTIONS = [
+  { value: 'SPECIALISATION',        label: 'Spécialisation' },
+  { value: 'QUALIFICATION',         label: 'Qualification' },
+  { value: 'TECHNICIEN',            label: 'Technicien' },
+  { value: 'TECHNICIEN_SPECIALISE', label: 'Technicien Spécialisé' },
+]
+
+const TYPE_FORMATION_OPTIONS = [
+  { value: 'RESIDENTIELLE', label: 'Résidentielle' },
+  { value: 'ALTERNEE',      label: 'Alternée' },
+]
+
+const MODE_FORMATION_OPTIONS = [
+  { value: 'DIPLOMANTE',  label: 'Diplômante' },
+  { value: 'QUALIFIANTE', label: 'Qualifiante' },
+]
+
 export default function StagiairesPage() {
   const [stagiaires, setStagiaires] = useState([])
   const [loading, setLoading] = useState(true)
@@ -18,15 +35,19 @@ export default function StagiairesPage() {
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [showModal, setShowModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editing, setEditing] = useState(null)
   const [showImportModal, setShowImportModal] = useState(false)
   const [groupes, setGroupes] = useState([])
   const [saving, setSaving]       = useState(false)
+  const [updating, setUpdating]   = useState(false)
   const [importing, setImporting] = useState(false)
   const [envoyerEmails, setEnvoyerEmails] = useState(false)
   const [fichierSelectionne, setFichierSelectionne] = useState(null)
   const fileRef = useRef()
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
+  const editForm = useForm()
 
   const load = () => {
     setLoading(true)
@@ -62,6 +83,49 @@ export default function StagiairesPage() {
   const handleToggle = async (id) => {
     await userService.toggleActif(id)
     load()
+  }
+
+  const openEdit = (s) => {
+    setEditing(s)
+    editForm.reset({
+      nom: s.nom,
+      prenom: s.prenom,
+      telephone: s.telephone || '',
+      groupeId: s.groupeId || '',
+      dateInscription: s.dateInscription || '',
+      dateNaissance: s.dateNaissance || '',
+      lieuNaissance: s.lieuNaissance || '',
+      niveauFormation: s.niveauFormation || '',
+      typeFormation: s.typeFormation || '',
+      modeFormation: s.modeFormation || '',
+    })
+    setShowEditModal(true)
+  }
+
+  const handleUpdate = async (data) => {
+    setUpdating(true)
+    try {
+      const payload = {
+        ...data,
+        groupeId: data.groupeId || null,
+        telephone: data.telephone || null,
+        dateInscription: data.dateInscription || null,
+        dateNaissance: data.dateNaissance || null,
+        lieuNaissance: data.lieuNaissance || null,
+        niveauFormation: data.niveauFormation || null,
+        typeFormation: data.typeFormation || null,
+        modeFormation: data.modeFormation || null,
+      }
+      await userService.update(editing.id, payload)
+      toast.success('Stagiaire modifié avec succès')
+      setShowEditModal(false)
+      setEditing(null)
+      load()
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Erreur lors de la modification')
+    } finally {
+      setUpdating(false)
+    }
   }
 
   const handleFichierChange = (e) => {
@@ -164,6 +228,13 @@ export default function StagiairesPage() {
                       </td>
                       <td>
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openEdit(s)}
+                            className="p-1.5 rounded hover:bg-gray-100 transition-colors"
+                            title="Modifier"
+                          >
+                            <Pencil size={16} className="text-gray-500" />
+                          </button>
                           <button
                             onClick={() => handleToggle(s.id)}
                             className="p-1.5 rounded hover:bg-gray-100 transition-colors"
@@ -307,6 +378,106 @@ export default function StagiairesPage() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal Modification */}
+      <Modal isOpen={showEditModal} onClose={() => { setShowEditModal(false); setEditing(null) }} title="Modifier le stagiaire" size="lg">
+        {editing && (
+          <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Nom</label>
+                <input className="input-field" {...editForm.register('nom', { required: 'Obligatoire' })} />
+                {editForm.formState.errors.nom && <p className="text-red-500 text-xs mt-1">{editForm.formState.errors.nom.message}</p>}
+              </div>
+              <div>
+                <label className="label">Prénom</label>
+                <input className="input-field" {...editForm.register('prenom', { required: 'Obligatoire' })} />
+                {editForm.formState.errors.prenom && <p className="text-red-500 text-xs mt-1">{editForm.formState.errors.prenom.message}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Téléphone</label>
+                <input className="input-field" {...editForm.register('telephone')} placeholder="0600000000" />
+              </div>
+              <div>
+                <label className="label">Groupe</label>
+                <select className="input-field" {...editForm.register('groupeId')}>
+                  <option value="">-- Sélectionner un groupe --</option>
+                  {Object.entries(
+                    groupes.reduce((acc, g) => {
+                      const fil = g.filiere?.nom || 'Sans filière'
+                      if (!acc[fil]) acc[fil] = []
+                      acc[fil].push(g)
+                      return acc
+                    }, {})
+                  ).map(([filNom, grps]) => (
+                    <optgroup key={filNom} label={filNom}>
+                      {grps.map(g => (
+                        <option key={g.id} value={g.id}>{g.nom}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+                Informations pour attestations (OFPPT)
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="label">Date de naissance</label>
+                  <input type="date" className="input-field" {...editForm.register('dateNaissance')} />
+                </div>
+                <div>
+                  <label className="label">Lieu de naissance</label>
+                  <input className="input-field" {...editForm.register('lieuNaissance')} placeholder="Nador" />
+                </div>
+                <div>
+                  <label className="label">Poursuit sa formation depuis</label>
+                  <input type="date" className="input-field" {...editForm.register('dateInscription')} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div>
+                  <label className="label">Niveau de formation</label>
+                  <select className="input-field" {...editForm.register('niveauFormation')}>
+                    <option value="">--</option>
+                    {NIVEAU_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Type formation</label>
+                  <select className="input-field" {...editForm.register('typeFormation')}>
+                    <option value="">--</option>
+                    {TYPE_FORMATION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Mode</label>
+                  <select className="input-field" {...editForm.register('modeFormation')}>
+                    <option value="">--</option>
+                    {MODE_FORMATION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <button type="button" onClick={() => { setShowEditModal(false); setEditing(null) }} className="btn-secondary">
+                Annuler
+              </button>
+              <button type="submit" disabled={updating} className="btn-primary">
+                {updating ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   )
