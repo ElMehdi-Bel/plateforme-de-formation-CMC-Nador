@@ -15,11 +15,12 @@ const statutBadge = {
 }
 
 const typeOptions = [
-  { value: 'ATTESTATION_INSCRIPTION', label: "Attestation d'inscription" },
-  { value: 'ATTESTATION_STAGE',       label: 'Attestation de stage' },
-  { value: 'RELEVE_NOTES',            label: 'Relevé de notes' },
-  { value: 'CERTIFICAT_PRESENCE',     label: 'Certificat de présence' },
-  { value: 'AUTRE',                   label: 'Autre' },
+  { value: 'ATTESTATION_INSCRIPTION',         label: "Attestation d'inscription" },
+  { value: 'ATTESTATION_STAGE',               label: 'Attestation de stage' },
+  { value: 'ATTESTATION_POURSUITE_FORMATION', label: 'Attestation de poursuite de formation' },
+  { value: 'RELEVE_NOTES',                    label: 'Relevé de notes' },
+  { value: 'CERTIFICAT_PRESENCE',             label: 'Certificat de présence' },
+  { value: 'AUTRE',                           label: 'Autre' },
 ]
 
 export default function MesDemandesPage() {

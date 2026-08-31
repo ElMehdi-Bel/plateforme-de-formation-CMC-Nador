@@ -24,9 +24,14 @@ export default function Header({ onToggleSidebar }) {
   const [notifCount, setNotifCount] = useState(0)
 
   useEffect(() => {
-    notificationService.countNonLues()
-      .then(r => setNotifCount(r.data.data.count || 0))
-      .catch(() => {})
+    const fetchCount = () => {
+      notificationService.countNonLues()
+        .then(r => setNotifCount(r.data.data.count || 0))
+        .catch(() => {})
+    }
+    fetchCount()
+    const interval = setInterval(fetchCount, 20000)
+    return () => clearInterval(interval)
   }, [])
 
   const notifPath = `/${ROLE_PREFIX[user?.role] || 'stagiaire'}/notifications`

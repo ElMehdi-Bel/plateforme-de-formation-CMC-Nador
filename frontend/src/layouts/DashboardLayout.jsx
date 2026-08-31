@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '../components/layout/Sidebar'
 import Header from '../components/layout/Header'
-import { Toaster } from 'react-hot-toast'
 
 export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false)
@@ -16,7 +15,6 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
-      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
     </div>
   )
 }
