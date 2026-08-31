@@ -17,7 +17,14 @@ public class AppelRequest {
     @Data
     public static class AbsenceItem {
         private Long stagiaireId;
-        private boolean absent;
+        /** PRESENT | ABSENT | RETARD. Si null, on retombe sur {@code absent}. */
+        private String statut;
+        private boolean absent;   // rétro-compatibilité
         private String motif;
+
+        public String resolvedStatut() {
+            if (statut != null && !statut.isBlank()) return statut.trim().toUpperCase();
+            return absent ? "ABSENT" : "PRESENT";
+        }
     }
 }

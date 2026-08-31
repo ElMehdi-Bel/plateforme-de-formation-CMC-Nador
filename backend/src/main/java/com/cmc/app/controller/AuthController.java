@@ -4,8 +4,10 @@ import com.cmc.app.dto.request.LoginRequest;
 import com.cmc.app.dto.request.RefreshTokenRequest;
 import com.cmc.app.dto.response.ApiResponse;
 import com.cmc.app.dto.response.AuthResponse;
+import com.cmc.app.dto.response.UserResponse;
 import com.cmc.app.entity.User;
 import com.cmc.app.service.AuthService;
+import com.cmc.app.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final UserService userService;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
@@ -39,7 +42,7 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<User>> me(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(ApiResponse.success(user));
+    public ResponseEntity<ApiResponse<UserResponse>> me(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(ApiResponse.success(userService.toResponse(user)));
     }
 }

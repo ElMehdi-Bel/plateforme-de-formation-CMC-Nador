@@ -1,8 +1,11 @@
 package com.cmc.app.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.cmc.app.enums.StatutEmploi;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -22,19 +25,20 @@ public class EmploiDuTemps {
     private Long id;
 
     // ─── FK optionnelles (présentes si entités connues en base) ───────────────
+    // Non sérialisées : l'API expose EmploiResponse (DTO), pas l'entité.
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "groupe_id")
-    @JsonIgnoreProperties({"stagiaires", "modules", "filiere", "hibernateLazyInitializer"})
     private Groupe groupe;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "module_id")
-    @JsonIgnoreProperties({"hibernateLazyInitializer"})
     private Module module;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "formateur_id")
-    @JsonIgnoreProperties({"password", "authorities", "groupe", "hibernateLazyInitializer"})
     private User formateur;
 
     // ─── Champs textuels directs depuis l'Excel (toujours renseignés) ─────────
@@ -68,6 +72,32 @@ public class EmploiDuTemps {
 
     @Column(name = "annee_scolaire", length = 20)
     private String anneeScolaire; // ex: "2025-2026"
+
+    // ─── Workflow de validation (Chef de pôle) ───────────────────────────────
+    // Colonne nullable : ddl-auto=update ne rétro-remplit pas les lignes existantes.
+    // Une séance sans statut (null) est traitée comme BROUILLON côté lecture.
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "statut", length = 20)
+    @Builder.Default
+    private StatutEmploi statut = StatutEmploi.BROUILLON;
+
+    @PostLoad
+    private void normaliserStatut() {
+        if (statut == null) statut = StatutEmploi.BROUILLON;
+    }
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "valide_par_id")
+    private User validePar;
+
+    /** Nom du validateur, dénormalisé (évite un chargement paresseux). */
+    @Column(name = "valide_par_nom", length = 150)
+    private String valideParNom;
+
+    @Column(name = "date_validation")
+    private LocalDateTime dateValidation;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

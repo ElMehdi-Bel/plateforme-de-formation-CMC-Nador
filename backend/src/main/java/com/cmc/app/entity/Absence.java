@@ -1,5 +1,6 @@
 package com.cmc.app.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,14 +19,17 @@ public class Absence {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stagiaire_id", nullable = false)
     private User stagiaire;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "module_id")
     private Module module;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "formateur_id")
     private User formateur;
@@ -36,6 +40,11 @@ public class Absence {
     @Column(nullable = false)
     @Builder.Default
     private boolean justifiee = false;
+
+    /** ABSENCE (défaut) ou RETARD — utilisé par la grille de discipline. */
+    @Column(name = "type", length = 20, nullable = false)
+    @Builder.Default
+    private String type = "ABSENCE";
 
     @Column(columnDefinition = "TEXT")
     private String motif;

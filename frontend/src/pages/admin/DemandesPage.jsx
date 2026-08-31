@@ -5,6 +5,7 @@ import Badge from '../../components/ui/Badge'
 import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
 import toast from 'react-hot-toast'
+import { useAuth } from '../../context/AuthContext'
 
 const statutBadge = {
   EN_ATTENTE:    { variant: 'warning', label: 'En attente' },
@@ -22,6 +23,9 @@ const typeDemande = {
 }
 
 export default function DemandesPage() {
+  const { isGestionnaire } = useAuth()
+  const canManage = isGestionnaire        // ADMIN : consultation seule
+
   const [demandes, setDemandes]         = useState([])
   const [page, setPage]                 = useState(0)
   const [totalPages, setTotalPages]     = useState(0)
@@ -107,7 +111,9 @@ export default function DemandesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Demandes administratives</h1>
-        <p className="text-gray-500 text-sm mt-1">Traitement des demandes des stagiaires</p>
+        <p className="text-gray-500 text-sm mt-1">
+          {canManage ? 'Traitement des demandes des stagiaires' : 'Consultation des demandes des stagiaires'}
+        </p>
       </div>
 
       <div className="card space-y-4">
@@ -137,13 +143,13 @@ export default function DemandesPage() {
                 <th>Date</th>
                 <th>Statut</th>
                 <th>Document</th>
-                <th>Actions</th>
+                {canManage && <th>Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-10">
+                  <td colSpan={canManage ? 7 : 6} className="text-center py-10">
                     <Loader2 size={22} className="animate-spin mx-auto text-primary-500" />
                   </td>
                 </tr>
@@ -165,33 +171,35 @@ export default function DemandesPage() {
                       : <span className="text-xs text-gray-400">—</span>
                     }
                   </td>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      {d.statut === 'EN_ATTENTE' && (
-                        <button
-                          onClick={() => { setSelected(d); setCommentaire('') }}
-                          className="text-xs text-primary-600 hover:underline font-medium"
-                        >
-                          Traiter
-                        </button>
-                      )}
-                      {(d.statut === 'APPROUVEE' || d.statut === 'DOCUMENT_PRET') && (
-                        <button
-                          onClick={() => openUpload(d)}
-                          className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1"
-                        >
-                          {d.statut === 'DOCUMENT_PRET'
-                            ? <><RefreshCw size={12}/> Remplacer</>
-                            : <><Upload size={12}/> Uploader doc</>
-                          }
-                        </button>
-                      )}
-                    </div>
-                  </td>
+                  {canManage && (
+                    <td>
+                      <div className="flex items-center gap-2">
+                        {d.statut === 'EN_ATTENTE' && (
+                          <button
+                            onClick={() => { setSelected(d); setCommentaire('') }}
+                            className="text-xs text-primary-600 hover:underline font-medium"
+                          >
+                            Traiter
+                          </button>
+                        )}
+                        {(d.statut === 'APPROUVEE' || d.statut === 'DOCUMENT_PRET') && (
+                          <button
+                            onClick={() => openUpload(d)}
+                            className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1"
+                          >
+                            {d.statut === 'DOCUMENT_PRET'
+                              ? <><RefreshCw size={12}/> Remplacer</>
+                              : <><Upload size={12}/> Uploader doc</>
+                            }
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
               {!loading && demandes.length === 0 && (
-                <tr><td colSpan={7} className="text-center text-gray-400 py-8">Aucune demande</td></tr>
+                <tr><td colSpan={canManage ? 7 : 6} className="text-center text-gray-400 py-8">Aucune demande</td></tr>
               )}
             </tbody>
           </table>

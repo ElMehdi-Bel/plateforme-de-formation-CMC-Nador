@@ -58,9 +58,9 @@ function NotifCard({ notif, onRead }) {
           </div>
         </div>
         <p className="text-sm text-warm-500 mt-0.5 leading-relaxed">{notif.message}</p>
-        {notif.expediteur && (
+        {(notif.expediteurNom ?? notif.expediteur) && (
           <p className="text-[11px] text-warm-400 mt-1.5 font-medium">
-            De : {notif.expediteur.fullName ?? notif.expediteur.nom}
+            De : {notif.expediteurNom ?? notif.expediteur?.fullName ?? notif.expediteur?.nom}
           </p>
         )}
       </div>

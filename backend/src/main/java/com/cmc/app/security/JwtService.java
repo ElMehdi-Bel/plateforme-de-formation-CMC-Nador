@@ -1,13 +1,15 @@
 package com.cmc.app.security;
 
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.WeakKeyException;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
@@ -24,6 +26,20 @@ public class JwtService {
     @Value("${app.jwt.access-token-expiration}")
     private long accessTokenExpiration;
 
+    private Key signingKey;
+
+    @PostConstruct
+    void init() {
+        byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+        try {
+            this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+        } catch (WeakKeyException e) {
+            throw new IllegalStateException(
+                "app.jwt.secret doit contenir au moins 32 caractères (256 bits). "
+                + "Définissez JWT_SECRET ou application-local.properties.", e);
+        }
+    }
+
     public String generateAccessToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", userDetails.getAuthorities().iterator().next().getAuthority());
@@ -36,7 +52,7 @@ public class JwtService {
                 .setSubject(subject)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .signWith(signingKey, SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -69,16 +85,9 @@ public class JwtService {
 
     private Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
+                .setSigningKey(signingKey)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
-    }
-
-    private Key getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(
-            java.util.Base64.getEncoder().encodeToString(secretKey.getBytes())
-        );
-        return Keys.hmacShaKeyFor(keyBytes);
     }
 }

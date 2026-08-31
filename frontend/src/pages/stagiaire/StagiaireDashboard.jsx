@@ -59,7 +59,7 @@ export default function StagiaireDashboard() {
               {notes.map(n => (
                 <div key={n.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{n.module?.nom}</p>
+                    <p className="text-sm font-medium text-gray-900">{n.moduleNom ?? n.module?.nom}</p>
                     <p className="text-xs text-gray-500">{n.typeEvaluation}</p>
                   </div>
                   <span className={`text-lg font-bold ${n.valeur >= 10 ? 'text-green-600' : 'text-red-500'}`}>

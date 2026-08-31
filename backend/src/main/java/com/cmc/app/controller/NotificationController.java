@@ -2,6 +2,7 @@ package com.cmc.app.controller;
 
 import com.cmc.app.dto.request.NotificationRequest;
 import com.cmc.app.dto.response.ApiResponse;
+import com.cmc.app.dto.response.NotificationResponse;
 import com.cmc.app.dto.response.PageResponse;
 import com.cmc.app.entity.Notification;
 import com.cmc.app.entity.User;
@@ -26,21 +27,21 @@ public class NotificationController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Notification>> send(
+    public ResponseEntity<ApiResponse<NotificationResponse>> send(
             @Valid @RequestBody NotificationRequest request,
             @AuthenticationPrincipal User admin) {
         return ResponseEntity.ok(ApiResponse.success(
-                notificationService.envoyerParRequest(request, admin)));
+                NotificationResponse.from(notificationService.envoyerParRequest(request, admin))));
     }
 
     @GetMapping("/mes-notifications")
-    public ResponseEntity<ApiResponse<PageResponse<Notification>>> mesNotifications(
+    public ResponseEntity<ApiResponse<PageResponse<NotificationResponse>>> mesNotifications(
             @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Page<Notification> result = notificationService.findForUser(user.getId(), PageRequest.of(page, size));
-        return ResponseEntity.ok(ApiResponse.success(PageResponse.<Notification>builder()
-                .content(result.getContent())
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.<NotificationResponse>builder()
+                .content(NotificationResponse.fromList(result.getContent()))
                 .page(result.getNumber())
                 .size(result.getSize())
                 .totalElements(result.getTotalElements())

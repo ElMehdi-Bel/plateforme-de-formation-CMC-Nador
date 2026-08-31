@@ -30,4 +30,7 @@ public class CreateUserRequest {
     private Role role;
 
     private Long groupeId;
+
+    /** Pôle de rattachement — surtout pour CHEF_DE_POLE et FORMATEUR. */
+    private Long poleId;
 }

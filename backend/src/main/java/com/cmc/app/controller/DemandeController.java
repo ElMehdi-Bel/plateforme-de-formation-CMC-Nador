@@ -39,7 +39,7 @@ public class DemandeController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE')")
     public ResponseEntity<ApiResponse<PageResponse<DemandeResponse>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -66,7 +66,7 @@ public class DemandeController {
     }
 
     @PatchMapping("/{id}/traiter")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('GESTIONNAIRE')")
     public ResponseEntity<ApiResponse<DemandeResponse>> traiter(
             @PathVariable Long id,
             @RequestParam StatutDemande statut,
@@ -77,7 +77,7 @@ public class DemandeController {
     }
 
     @PostMapping(value = "/{id}/document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('GESTIONNAIRE')")
     public ResponseEntity<ApiResponse<DemandeResponse>> uploadDocument(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file,

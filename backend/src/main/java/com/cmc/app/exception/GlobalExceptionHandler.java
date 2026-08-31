@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -44,10 +45,27 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Email ou mot de passe incorrect"));
     }
 
+    @ExceptionHandler(TooManyAttemptsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTooManyAttempts(TooManyAttemptsException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    /** Compte désactivé, verrouillé, identifiants expirés, etc. */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthentication(AuthenticationException ex) {
+        log.warn("Échec d'authentification: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error("Authentification refusée. Vérifiez vos identifiants ou contactez l'administrateur."));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
+        String msg = ex.getMessage();
+        boolean custom = msg != null && !msg.isBlank()
+                && !msg.startsWith("Access Denied") && !msg.startsWith("Access is denied");
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error("Accès refusé"));
+                .body(ApiResponse.error(custom ? msg : "Accès refusé"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -72,21 +90,31 @@ public class GlobalExceptionHandler {
         String msg = ex.getMostSpecificCause().getMessage();
         if (msg != null && msg.contains("Duplicate entry")) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(ApiResponse.error("Un code ou email identique existe déjà"));
+                    .body(ApiResponse.error("Un enregistrement identique existe déjà"));
         }
         if (msg != null && msg.contains("Data too long")) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("Une valeur est trop longue pour le champ correspondant"));
         }
+        if (msg != null && (msg.contains("foreign key") || msg.contains("a foreign key constraint fails"))) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.error("Opération impossible : cet élément est encore référencé ailleurs"));
+        }
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.error("Violation de contrainte base de données : " + ex.getMostSpecificCause().getMessage()));
+                .body(ApiResponse.error("Violation de contrainte en base de données"));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotReadable(HttpMessageNotReadableException ex) {
-        log.error("JSON parse error: ", ex);
+        log.warn("Requête illisible: {}", ex.getMostSpecificCause().getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Format de données invalide : " + ex.getMostSpecificCause().getMessage()));
+                .body(ApiResponse.error("Format de données invalide"));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(IllegalStateException.class)
@@ -99,6 +127,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
         log.error("Unexpected error: ", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Erreur interne : " + ex.getMessage()));
+                .body(ApiResponse.error("Une erreur interne est survenue. Merci de réessayer plus tard."));
     }
 }

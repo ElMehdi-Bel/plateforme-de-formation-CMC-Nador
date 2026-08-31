@@ -1,7 +1,9 @@
 package com.cmc.app.controller;
 
 import com.cmc.app.dto.request.EmploiRequest;
+import com.cmc.app.dto.request.EmploiSeanceRequest;
 import com.cmc.app.dto.response.ApiResponse;
+import com.cmc.app.dto.response.EmploiResponse;
 import com.cmc.app.entity.EmploiDuTemps;
 import com.cmc.app.entity.User;
 import com.cmc.app.exception.ResourceNotFoundException;
@@ -21,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -35,12 +38,8 @@ public class EmploiController {
 
     // ─── Import Excel ─────────────────────────────────────────────────────────
 
-    /**
-     * Import de l'emploi du temps depuis un fichier Excel.
-     * Exemple : POST /api/v1/emplois/import?anneeScolaire=2025-2026&replace=true
-     */
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('CHEF_DE_POLE')")
     public ResponseEntity<ApiResponse<EmploiImportService.ImportResult>> importExcel(
             @RequestParam("file") MultipartFile file,
             @RequestParam(defaultValue = "2025-2026") String anneeScolaire,
@@ -64,116 +63,144 @@ public class EmploiController {
 
     // ─── Lecture en grille ────────────────────────────────────────────────────
 
-    /**
-     * Retourne l'emploi du temps complet sous forme de grille par jour.
-     * Structure : { "LUNDI": [...séances...], "MARDI": [...], ... }
-     */
+    /** Grille complète par jour : { "LUNDI": [...], "MARDI": [...], ... } */
     @GetMapping("/grille")
-    public ResponseEntity<ApiResponse<Map<String, List<EmploiDuTemps>>>> getGrille(
+    public ResponseEntity<ApiResponse<Map<String, List<EmploiResponse>>>> getGrille(
             @RequestParam(defaultValue = "2025-2026") String anneeScolaire) {
-        return ResponseEntity.ok(ApiResponse.success(emploiImportService.getGrille(anneeScolaire)));
+        return ResponseEntity.ok(ApiResponse.success(toGrilleDto(emploiImportService.getGrille(anneeScolaire))));
     }
 
-    /**
-     * Retourne les séances d'un groupe spécifique (par code, ex: "GE101")
-     */
+    /** Séances d'un groupe (par code) — requête ciblée. */
     @GetMapping("/groupe/code/{groupeCode}")
-    public ResponseEntity<ApiResponse<List<EmploiDuTemps>>> findByGroupeCode(
-            @PathVariable String groupeCode) {
-        return ResponseEntity.ok(ApiResponse.success(
-                emploiImportService.getGrille("2025-2026")
-                        .values().stream()
-                        .flatMap(List::stream)
-                        .filter(e -> groupeCode.equalsIgnoreCase(e.getGroupeCode()))
-                        .toList()));
+    public ResponseEntity<ApiResponse<List<EmploiResponse>>> findByGroupeCode(
+            @PathVariable String groupeCode,
+            @RequestParam(defaultValue = "2025-2026") String anneeScolaire) {
+        return ResponseEntity.ok(ApiResponse.success(EmploiResponse.fromList(
+                emploiImportService.getGrilleByGroupeCode(anneeScolaire, groupeCode)
+                        .values().stream().flatMap(List::stream).toList())));
     }
 
-    /**
-     * Retourne les séances d'un formateur (par nom partiel)
-     */
+    /** Séances d'un formateur (par nom partiel) — requête ciblée, scopée par année. */
     @GetMapping("/formateur/nom/{nom}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR')")
-    public ResponseEntity<ApiResponse<List<EmploiDuTemps>>> findByFormateurNom(
+    @PreAuthorize("hasAnyRole('ADMIN', 'CHEF_DE_POLE', 'GESTIONNAIRE', 'FORMATEUR')")
+    public ResponseEntity<ApiResponse<List<EmploiResponse>>> findByFormateurNom(
             @PathVariable String nom,
             @RequestParam(defaultValue = "2025-2026") String anneeScolaire) {
-        return ResponseEntity.ok(ApiResponse.success(
-                emploiImportService.getGrille(anneeScolaire)
-                        .values().stream()
-                        .flatMap(List::stream)
-                        .filter(e -> e.getFormateurNom() != null &&
-                                e.getFormateurNom().toUpperCase().contains(nom.toUpperCase()))
-                        .toList()));
+        return ResponseEntity.ok(ApiResponse.success(EmploiResponse.fromList(
+                emploiService.findByAnneeAndFormateurNom(anneeScolaire, nom))));
     }
 
     /**
-     * Emploi du temps personnel du stagiaire connecté.
-     * Résout automatiquement le groupeCode à partir du compte connecté.
+     * Emploi du temps personnel du stagiaire connecté (résolu via son groupe).
      */
     @GetMapping("/mon-emploi")
     @PreAuthorize("hasAnyRole('STAGIAIRE', 'ADMIN')")
-    public ResponseEntity<ApiResponse<Map<String, List<EmploiDuTemps>>>> getMonEmploi(
+    public ResponseEntity<ApiResponse<Map<String, List<EmploiResponse>>>> getMonEmploi(
             @RequestParam(defaultValue = "2025-2026") String anneeScolaire,
             @AuthenticationPrincipal User principal) {
 
-        // Recharger l'utilisateur avec son groupe (lazy → JOIN FETCH)
         User stagiaire = userRepository.findByIdWithGroupe(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
 
         if (stagiaire.getGroupe() == null || stagiaire.getGroupe().getCode() == null) {
-            return ResponseEntity.ok(ApiResponse.success(
-                    "Aucun groupe assigné à ce compte", Map.of()));
+            return ResponseEntity.ok(ApiResponse.success("Aucun groupe assigné à ce compte", Map.of()));
         }
 
-        String groupeCode = stagiaire.getGroupe().getCode();
-
-        // Filtrer la grille par groupeCode
-        Map<String, List<EmploiDuTemps>> grilleComplete = emploiImportService.getGrille(anneeScolaire);
-        Map<String, List<EmploiDuTemps>> grilleFiltered = new java.util.LinkedHashMap<>();
-        for (Map.Entry<String, List<EmploiDuTemps>> entry : grilleComplete.entrySet()) {
-            List<EmploiDuTemps> seances = entry.getValue().stream()
-                    .filter(e -> groupeCode.equalsIgnoreCase(e.getGroupeCode()))
-                    .toList();
-            grilleFiltered.put(entry.getKey(), seances);
-        }
-
-        return ResponseEntity.ok(ApiResponse.success(grilleFiltered));
+        Map<String, List<EmploiResponse>> grille = toGrilleDto(
+                emploiImportService.getGrilleByGroupeCode(anneeScolaire, stagiaire.getGroupe().getCode()));
+        return ResponseEntity.ok(ApiResponse.success(grille));
     }
 
     // ─── CRUD standard ────────────────────────────────────────────────────────
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<EmploiDuTemps>> create(
+    @PreAuthorize("hasRole('CHEF_DE_POLE')")
+    public ResponseEntity<ApiResponse<EmploiResponse>> create(
             @Valid @RequestBody EmploiRequest request,
             @AuthenticationPrincipal User admin) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(emploiService.create(request, admin)));
+                .body(ApiResponse.success(EmploiResponse.from(emploiService.create(request, admin))));
+    }
+
+    @PostMapping("/seance")
+    @PreAuthorize("hasRole('CHEF_DE_POLE')")
+    public ResponseEntity<ApiResponse<EmploiResponse>> createSeance(
+            @Valid @RequestBody EmploiSeanceRequest request,
+            @AuthenticationPrincipal User admin) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(EmploiResponse.from(emploiService.createSeance(request, admin))));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('CHEF_DE_POLE')")
+    public ResponseEntity<ApiResponse<EmploiResponse>> updateSeance(
+            @PathVariable Long id,
+            @Valid @RequestBody EmploiSeanceRequest request,
+            @AuthenticationPrincipal User admin) {
+        return ResponseEntity.ok(ApiResponse.success(
+                EmploiResponse.from(emploiService.updateSeance(id, request, admin))));
+    }
+
+    /** Validation d'une séance par le Chef de pôle (BROUILLON → VALIDE). */
+    @PatchMapping("/{id}/valider")
+    @PreAuthorize("hasRole('CHEF_DE_POLE')")
+    public ResponseEntity<ApiResponse<EmploiResponse>> valider(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User chef) {
+        return ResponseEntity.ok(ApiResponse.success("Séance validée",
+                EmploiResponse.from(emploiService.valider(id, chef))));
+    }
+
+    /** Validation en lot : toute la grille d'une année, ou d'un seul groupe. */
+    @PatchMapping("/valider-lot")
+    @PreAuthorize("hasRole('CHEF_DE_POLE')")
+    public ResponseEntity<ApiResponse<Integer>> validerLot(
+            @RequestParam(defaultValue = "2025-2026") String anneeScolaire,
+            @RequestParam(required = false) String groupeCode,
+            @AuthenticationPrincipal User chef) {
+        int n = emploiService.validerLot(anneeScolaire, groupeCode, chef);
+        return ResponseEntity.ok(ApiResponse.success(n + " séance(s) validée(s)", n));
+    }
+
+    /** Liste des conflits de la grille (salle / groupe / formateur sur le même créneau). */
+    @GetMapping("/conflits")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CHEF_DE_POLE')")
+    public ResponseEntity<ApiResponse<List<EmploiService.Conflit>>> conflits(
+            @RequestParam(defaultValue = "2025-2026") String anneeScolaire) {
+        return ResponseEntity.ok(ApiResponse.success(emploiService.listConflits(anneeScolaire)));
     }
 
     @GetMapping("/groupe/{groupeId}")
-    public ResponseEntity<ApiResponse<List<EmploiDuTemps>>> findByGroupe(
+    public ResponseEntity<ApiResponse<List<EmploiResponse>>> findByGroupe(
             @PathVariable Long groupeId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate debut,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fin) {
         List<EmploiDuTemps> emplois = (debut != null && fin != null)
                 ? emploiService.findByGroupeAndPeriode(groupeId, debut, fin)
                 : emploiService.findByGroupe(groupeId);
-        return ResponseEntity.ok(ApiResponse.success(emplois));
+        return ResponseEntity.ok(ApiResponse.success(EmploiResponse.fromList(emplois)));
     }
 
     @GetMapping("/formateur/{formateurId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR')")
-    public ResponseEntity<ApiResponse<List<EmploiDuTemps>>> findByFormateur(
+    @PreAuthorize("hasAnyRole('ADMIN', 'CHEF_DE_POLE', 'GESTIONNAIRE', 'FORMATEUR')")
+    public ResponseEntity<ApiResponse<List<EmploiResponse>>> findByFormateur(
             @PathVariable Long formateurId) {
-        return ResponseEntity.ok(ApiResponse.success(emploiService.findByFormateur(formateurId)));
+        return ResponseEntity.ok(ApiResponse.success(
+                EmploiResponse.fromList(emploiService.findByFormateur(formateurId))));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('CHEF_DE_POLE')")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable Long id,
             @AuthenticationPrincipal User admin) {
         emploiService.delete(id, admin);
         return ResponseEntity.ok(ApiResponse.success("Séance supprimée", null));
+    }
+
+    private static Map<String, List<EmploiResponse>> toGrilleDto(Map<String, List<EmploiDuTemps>> grille) {
+        Map<String, List<EmploiResponse>> out = new LinkedHashMap<>();
+        grille.forEach((jour, seances) -> out.put(jour, EmploiResponse.fromList(seances)));
+        return out;
     }
 }

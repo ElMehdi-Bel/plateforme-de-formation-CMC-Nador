@@ -1,6 +1,8 @@
 package com.cmc.app.controller;
 
+import com.cmc.app.dto.request.ChangePasswordRequest;
 import com.cmc.app.dto.request.CreateUserRequest;
+import com.cmc.app.dto.request.UpdateProfileRequest;
 import com.cmc.app.dto.response.ApiResponse;
 import com.cmc.app.dto.response.PageResponse;
 import com.cmc.app.dto.response.UserResponse;
@@ -29,7 +31,7 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'CHEF_DE_POLE')")
     public ResponseEntity<ApiResponse<UserResponse>> create(
             @Valid @RequestBody CreateUserRequest request,
             @AuthenticationPrincipal User admin) {
@@ -39,7 +41,7 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'CHEF_DE_POLE')")
     public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> findAll(
             @RequestParam(defaultValue = "STAGIAIRE") Role role,
             @RequestParam(defaultValue = "") String search,
@@ -62,21 +64,61 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR') or #id == authentication.principal.id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'CHEF_DE_POLE', 'FORMATEUR') or #id == authentication.principal.id")
     public ResponseEntity<ApiResponse<UserResponse>> findById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(userService.findById(id)));
     }
 
+    // ─── Espace « Mon compte » (tous rôles) ──────────────────────────────────
+
+    @PatchMapping("/me/password")
+    public ResponseEntity<ApiResponse<Void>> changeOwnPassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal User principal) {
+        userService.changeOwnPassword(principal, request.getCurrentPassword(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("Mot de passe modifié", null));
+    }
+
+    @PatchMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> updateOwnProfile(
+            @Valid @RequestBody UpdateProfileRequest request,
+            @AuthenticationPrincipal User principal) {
+        return ResponseEntity.ok(ApiResponse.success("Profil mis à jour",
+                userService.updateOwnProfile(principal, request.getTelephone())));
+    }
+
     @PatchMapping("/{id}/toggle-actif")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'CHEF_DE_POLE')")
     public ResponseEntity<ApiResponse<UserResponse>> toggleActif(
             @PathVariable Long id,
             @AuthenticationPrincipal User admin) {
         return ResponseEntity.ok(ApiResponse.success(userService.toggleActif(id, admin)));
     }
 
-    @GetMapping("/stats")
+    /** Affecter un stagiaire à un groupe (Gestionnaire des stagiaires). */
+    @PatchMapping("/{id}/groupe")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE')")
+    public ResponseEntity<ApiResponse<UserResponse>> assignGroupe(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long groupeId,
+            @AuthenticationPrincipal User caller) {
+        return ResponseEntity.ok(ApiResponse.success("Groupe affecté",
+                userService.assignGroupe(id, groupeId, caller)));
+    }
+
+    /** Rattacher un membre du personnel (chef de pôle / formateur) à un pôle. */
+    @PatchMapping("/{id}/pole")
     @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<UserResponse>> assignPole(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long poleId,
+            @AuthenticationPrincipal User admin) {
+        return ResponseEntity.ok(ApiResponse.success("Pôle affecté",
+                userService.assignPole(id, poleId, admin)));
+    }
+
+    @GetMapping("/stats")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'CHEF_DE_POLE')")
     public ResponseEntity<ApiResponse<Map<String, Long>>> stats() {
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "stagiaires", userService.countByRole(Role.STAGIAIRE),
@@ -85,7 +127,7 @@ public class UserController {
     }
 
     @GetMapping("/groupe/{groupeId}/stagiaires")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'CHEF_DE_POLE', 'FORMATEUR')")
     public ResponseEntity<ApiResponse<List<UserResponse>>> findByGroupe(@PathVariable Long groupeId) {
         return ResponseEntity.ok(ApiResponse.success(userService.findStagiairesByGroupe(groupeId)));
     }

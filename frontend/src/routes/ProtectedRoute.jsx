@@ -10,7 +10,13 @@ export default function ProtectedRoute({ allowedRoles }) {
   if (!user) return <Navigate to="/login" replace />
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    const redirects = { ADMIN: '/admin/dashboard', FORMATEUR: '/formateur/dashboard', STAGIAIRE: '/stagiaire/dashboard' }
+    const redirects = {
+      ADMIN: '/admin/dashboard',
+      CHEF_DE_POLE: '/chef/dashboard',
+      GESTIONNAIRE: '/gestionnaire/dashboard',
+      FORMATEUR: '/formateur/dashboard',
+      STAGIAIRE: '/stagiaire/dashboard',
+    }
     return <Navigate to={redirects[user.role] || '/login'} replace />
   }
 

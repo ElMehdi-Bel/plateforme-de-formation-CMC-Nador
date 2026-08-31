@@ -1,0 +1,21 @@
+# =============================================
+# MODELE - copiez ce fichier en "application-local.properties"
+# (qui est ignoré par git) puis renseignez vos valeurs.
+#   cp application-local.properties.example application-local.properties
+# Alternative : définir les variables d'environnement correspondantes.
+# =============================================
+
+# --- Base de données ---
+# spring.datasource.url=jdbc:mysql://localhost:3306/cmc_nador?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+spring.datasource.username=root
+spring.datasource.password=CHANGE_ME
+
+# --- JWT ---
+# Chaine d'au moins 32 caracteres (256 bits).
+app.jwt.secret=CHANGE_ME_least_32_chars_0123456789_abcdefghijklmnop
+
+# --- SMTP (envoi des identifiants / notifications) ---
+# Adresse e-mail COMPLETE, ex: prenom.nom@gmail.com
+spring.mail.username=
+# Mot de passe d'application (16 caracteres) genere sur le compte Google
+spring.mail.password=

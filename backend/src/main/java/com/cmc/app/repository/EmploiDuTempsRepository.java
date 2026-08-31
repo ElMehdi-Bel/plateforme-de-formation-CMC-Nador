@@ -23,12 +23,33 @@ public interface EmploiDuTempsRepository extends JpaRepository<EmploiDuTemps, Lo
 
     List<EmploiDuTemps> findByJourSemaineAndAnneeScolaire(String jourSemaine, String anneeScolaire);
 
-    @Query("SELECT e FROM EmploiDuTemps e WHERE e.anneeScolaire = :annee ORDER BY " +
+    String JOUR_ORDER =
            "CASE e.jourSemaine " +
            "WHEN 'LUNDI' THEN 1 WHEN 'MARDI' THEN 2 WHEN 'MERCREDI' THEN 3 " +
-           "WHEN 'JEUDI' THEN 4 WHEN 'VENDREDI' THEN 5 WHEN 'SAMEDI' THEN 6 ELSE 7 END, " +
-           "e.heureDebut")
+           "WHEN 'JEUDI' THEN 4 WHEN 'VENDREDI' THEN 5 WHEN 'SAMEDI' THEN 6 ELSE 7 END, e.heureDebut";
+
+    @Query("SELECT e FROM EmploiDuTemps e WHERE e.anneeScolaire = :annee ORDER BY " + JOUR_ORDER)
     List<EmploiDuTemps> findAllByAnneeScolaireOrdered(@Param("annee") String annee);
+
+    @Query("SELECT e FROM EmploiDuTemps e WHERE e.anneeScolaire = :annee " +
+           "AND LOWER(e.groupeCode) = LOWER(:groupeCode) ORDER BY " + JOUR_ORDER)
+    List<EmploiDuTemps> findByAnneeAndGroupeCodeOrdered(@Param("annee") String annee,
+                                                        @Param("groupeCode") String groupeCode);
+
+    @Query("SELECT e FROM EmploiDuTemps e WHERE e.anneeScolaire = :annee " +
+           "AND LOWER(e.formateurNom) LIKE LOWER(CONCAT('%', :nom, '%')) ORDER BY " + JOUR_ORDER)
+    List<EmploiDuTemps> findByAnneeAndFormateurNomOrdered(@Param("annee") String annee,
+                                                          @Param("nom") String nom);
+
+    List<EmploiDuTemps> findByAnneeScolaireAndJourSemaineAndCreneau(String anneeScolaire, String jourSemaine, String creneau);
+
+    List<EmploiDuTemps> findByAnneeScolaireAndStatut(String anneeScolaire, com.cmc.app.enums.StatutEmploi statut);
+
+    @Query("SELECT e FROM EmploiDuTemps e WHERE e.anneeScolaire = :annee AND e.statut = :statut " +
+           "AND (:groupeCode IS NULL OR LOWER(e.groupeCode) = LOWER(:groupeCode))")
+    List<EmploiDuTemps> findToValidate(@Param("annee") String annee,
+                                       @Param("statut") com.cmc.app.enums.StatutEmploi statut,
+                                       @Param("groupeCode") String groupeCode);
 
     @Query("SELECT e FROM EmploiDuTemps e WHERE e.groupe.id = :groupeId AND e.dateSeance BETWEEN :debut AND :fin ORDER BY e.dateSeance, e.heureDebut")
     List<EmploiDuTemps> findByGroupeIdAndPeriode(@Param("groupeId") Long groupeId,

@@ -27,7 +27,9 @@ public class CoursService {
 
     private final CoursRepository coursRepository;
     private final ModuleRepository moduleRepository;
+    private final com.cmc.app.repository.UserRepository userRepository;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     @Value("${app.upload.dir}")
     private String uploadDir;
@@ -59,6 +61,14 @@ public class CoursService {
 
         Cours saved = coursRepository.save(cours);
         auditService.log(formateur, "UPLOAD_COURS", "Cours", saved.getId(), "Upload: " + titre);
+
+        // Notifier les stagiaires des groupes rattachés au module
+        for (var groupe : module.getGroupes()) {
+            for (User s : userRepository.findByGroupeId(groupe.getId())) {
+                notificationService.envoyer(formateur, s, "Nouveau support de cours",
+                        "« " + titre + " » a été déposé pour le module " + module.getNom() + ".", "COURS");
+            }
+        }
         return saved;
     }
 

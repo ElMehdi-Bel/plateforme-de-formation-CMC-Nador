@@ -4,6 +4,7 @@ import { emploiService } from '../../services/emploiService'
 import { useAuth } from '../../context/AuthContext'
 import Spinner from '../../components/ui/Spinner'
 import toast from 'react-hot-toast'
+import { ANNEE_SCOLAIRE_DEFAULT, ANNEES_SCOLAIRES } from '../../config/constants'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const JOURS = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI']
@@ -70,14 +71,25 @@ function getCreneauKey(creneau = '') {
 // ─── Carte séance ─────────────────────────────────────────────────────────────
 function SeanceCard({ seance, creneauKey }) {
   const c = SLOT_COLORS[creneauKey] || SLOT_COLORS['08H30']
+  const brouillon = seance.statut && seance.statut !== 'VALIDE'
   return (
-    <div className={`border rounded-xl p-3 transition-shadow hover:shadow-md ${c.card}`}>
-      {/* Groupe */}
-      {seance.groupeCode && (
-        <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full mb-2 ${c.badge}`}>
-          {seance.groupeCode}
-        </span>
-      )}
+    <div className={`border rounded-xl p-3 transition-shadow hover:shadow-md ${c.card} ${brouillon ? 'border-dashed' : ''}`}>
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        {/* Groupe */}
+        {seance.groupeCode && (
+          <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full ${c.badge}`}>
+            {seance.groupeCode}
+          </span>
+        )}
+        {brouillon && (
+          <span
+            title="Séance non encore validée par le chef de pôle"
+            className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200"
+          >
+            Provisoire
+          </span>
+        )}
+      </div>
       {/* Formateur */}
       {seance.formateurNom && (
         <p className="text-sm font-bold text-gray-800 leading-tight">
@@ -105,7 +117,7 @@ export default function MonEmploiPage() {
   const { user } = useAuth()
   const [grille, setGrille]           = useState(null)
   const [loading, setLoading]         = useState(true)
-  const [anneeScolaire, setAnneeScolaire] = useState('2025-2026')
+  const [anneeScolaire, setAnneeScolaire] = useState(ANNEE_SCOLAIRE_DEFAULT)
 
   const loadEmploi = useCallback(() => {
     setLoading(true)
@@ -151,9 +163,7 @@ export default function MonEmploiPage() {
           value={anneeScolaire}
           onChange={e => setAnneeScolaire(e.target.value)}
         >
-          <option value="2025-2026">2025-2026</option>
-          <option value="2024-2025">2024-2025</option>
-          <option value="2026-2027">2026-2027</option>
+          {ANNEES_SCOLAIRES.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
       </div>
 

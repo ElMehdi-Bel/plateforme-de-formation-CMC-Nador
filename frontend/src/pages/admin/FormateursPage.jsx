@@ -2,11 +2,13 @@ import { useEffect, useState, useRef } from 'react'
 import {
   Plus, Search, UserCheck, UserX, GraduationCap, Phone, Mail,
   Upload, Download, X, CheckCircle, ChevronDown, ChevronRight,
-  BookOpen, Users, Clock,
+  BookOpen, Users, Clock, Check, Layers,
 } from 'lucide-react'
 import { userService } from '../../services/userService'
 import { moduleService } from '../../services/moduleService'
+import { groupeService } from '../../services/filiereService'
 import { importService } from '../../services/importService'
+import { useAuth } from '../../context/AuthContext'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
 import Pagination from '../../components/ui/Pagination'
@@ -15,36 +17,205 @@ import Spinner from '../../components/ui/Spinner'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 
+// ── Panneau d'affectation : 1) groupe  2) modules de ce groupe  3) enregistrer ──
+function AffecterPanel({ formateur, onDone }) {
+  const [groupes, setGroupes]     = useState(null)
+  const [groupeId, setGroupeId]   = useState('')
+  const [modules, setModules]     = useState([])
+  const [selected, setSelected]   = useState(new Set())
+  const [loadingMods, setLoadingMods] = useState(false)
+  const [saving, setSaving]       = useState(false)
+
+  // Liste des groupes à l'ouverture
+  useEffect(() => {
+    groupeService.findAll()
+      .then(r => setGroupes(r.data.data || []))
+      .catch(() => { setGroupes([]); toast.error('Erreur chargement des groupes') })
+  }, [])
+
+  // Modules proposables pour le groupe choisi (référentiel de sa filière)
+  useEffect(() => {
+    setSelected(new Set())
+    if (!groupeId) { setModules([]); return }
+    setLoadingMods(true)
+    moduleService.modulesPourGroupe(groupeId)
+      .then(r => {
+        const mods = r.data.data || []
+        setModules(mods)
+        // pré-cocher les modules déjà affectés à CE formateur
+        setSelected(new Set(
+          mods.filter(m => m.formateurId != null && String(m.formateurId) === String(formateur.id))
+              .map(m => m.id)
+        ))
+      })
+      .catch(() => toast.error('Erreur chargement des modules du groupe'))
+      .finally(() => setLoadingMods(false))
+  }, [groupeId, formateur.id])
+
+  const toggle = (id) => setSelected(prev => {
+    const n = new Set(prev)
+    n.has(id) ? n.delete(id) : n.add(id)
+    return n
+  })
+  const toggleAll = () => setSelected(prev =>
+    prev.size === modules.length ? new Set() : new Set(modules.map(m => m.id)))
+
+  const handleSave = async () => {
+    if (!groupeId) return toast.error('Choisissez un groupe')
+    setSaving(true)
+    try {
+      const r = await moduleService.affecterGroupe({
+        formateurId: Number(formateur.id),
+        groupeId: Number(groupeId),
+        moduleIds: [...selected],
+      })
+      toast.success(r.data.message || 'Affectation enregistrée')
+      onDone()
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Erreur lors de l'affectation")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const groupe = groupes?.find(g => String(g.id) === String(groupeId))
+
+  return (
+    <div className="mt-3 rounded-xl border border-primary-200 bg-primary-50/50 p-4 space-y-3">
+      <p className="text-[11px] font-bold text-primary-700 uppercase tracking-wider flex items-center gap-1.5">
+        <Layers size={12} /> Affecter un groupe et ses modules à {formateur.fullName}
+      </p>
+
+      {/* Étape 1 : le groupe */}
+      <div>
+        <label className="label text-xs">1. Choisir le groupe</label>
+        {groupes === null ? (
+          <div className="flex items-center gap-2 text-xs text-warm-400 py-2"><Spinner size="sm" /> Chargement…</div>
+        ) : (
+          <select className="input-field" value={groupeId} onChange={e => setGroupeId(e.target.value)}>
+            <option value="">-- Groupe --</option>
+            {groupes.map(g => (
+              <option key={g.id} value={g.id}>
+                {g.nom}{g.code ? ` (${g.code})` : ''}{g.filiere?.nom ? ` — ${g.filiere.nom}` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Étape 2 : les modules de ce groupe uniquement */}
+      {!groupeId ? (
+        <p className="text-xs text-warm-400 italic">Choisissez d'abord un groupe pour voir ses modules.</p>
+      ) : loadingMods ? (
+        <div className="flex items-center gap-2 text-xs text-warm-400 py-2"><Spinner size="sm" /> Chargement des modules…</div>
+      ) : modules.length === 0 ? (
+        <p className="text-xs text-warm-400 italic py-2">
+          Aucun module dans la filière de ce groupe. Créez-les d'abord dans <strong>Modules</strong>.
+        </p>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <label className="label text-xs mb-0">
+              2. Modules {groupe ? `de ${groupe.nom}` : 'du groupe'} — {selected.size}/{modules.length} coché(s)
+            </label>
+            <button type="button" onClick={toggleAll} className="text-xs text-primary-600 hover:underline">
+              {selected.size === modules.length ? 'Tout décocher' : 'Tout cocher'}
+            </button>
+          </div>
+          <div className="rounded-lg border border-warm-200 bg-white divide-y divide-warm-100 max-h-60 overflow-y-auto">
+            {modules.map(m => {
+              const mine  = m.formateurId != null && String(m.formateurId) === String(formateur.id)
+              const other = m.formateurNom && !mine
+              return (
+                <label key={m.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-warm-50">
+                  <input type="checkbox" className="w-4 h-4 rounded accent-primary-600"
+                    checked={selected.has(m.id)} onChange={() => toggle(m.id)} />
+                  <span className="font-medium text-warm-800 flex-1 min-w-0 truncate">
+                    {m.nom}
+                    {m.code && <span className="ml-2 font-mono text-xs text-warm-400">{m.code}</span>}
+                  </span>
+                  {m.anneeFormation && <span className="badge-info text-[10px] flex-shrink-0">{m.anneeFormation}A</span>}
+                  {m.volumeHoraire && (
+                    <span className="flex items-center gap-0.5 text-xs text-warm-400 flex-shrink-0">
+                      <Clock size={10} />{m.volumeHoraire}h
+                    </span>
+                  )}
+                  {mine && <span className="text-[10px] text-primary-600 flex-shrink-0">déjà affecté</span>}
+                  {other && (
+                    <span className="text-[10px] text-amber-600 flex-shrink-0" title="Affecté à un autre formateur">
+                      → {m.formateurNom}
+                    </span>
+                  )}
+                </label>
+              )
+            })}
+          </div>
+          <p className="text-[10px] text-warm-400">
+            Cocher un module l'affecte à {formateur.fullName} et le rattache au groupe.
+            Décocher un de ses modules le lui retire (le module reste dans le groupe).
+          </p>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-primary flex items-center gap-2 text-sm"
+          >
+            {saving ? <Spinner size="sm" /> : <Check size={15} />}
+            Enregistrer l'affectation
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── Ligne expandable : modules + groupes d'un formateur ────────────────────
-function FormateurModules({ formateurId }) {
+function FormateurModules({ formateur, canAssign }) {
   const [modules, setModules]   = useState(null)
   const [loading, setLoading]   = useState(true)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [showAffecter, setShowAffecter] = useState(false)
 
   useEffect(() => {
-    moduleService.findByFormateur(formateurId)
+    setLoading(true)
+    moduleService.findByFormateur(formateur.id)
       .then(r => setModules(r.data.data || []))
       .catch(() => setModules([]))
       .finally(() => setLoading(false))
-  }, [formateurId])
+  }, [formateur.id, reloadKey])
 
-  if (loading) return (
-    <div className="flex items-center gap-2 py-3 px-5 text-xs text-warm-400">
-      <Spinner size="sm" /> Chargement des modules...
-    </div>
-  )
-
-  if (!modules || modules.length === 0) return (
-    <div className="py-4 px-5 text-xs text-warm-400 italic">
-      Aucun module assigné à ce formateur.
-    </div>
-  )
+  const refresh = () => { setShowAffecter(false); setReloadKey(k => k + 1) }
 
   return (
     <div className="px-5 pb-4 pt-2 space-y-2">
-      <p className="text-[11px] font-bold text-warm-500 uppercase tracking-wider mb-3">
-        {modules.length} module(s) assigné(s)
-      </p>
-      {modules.map(m => (
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <p className="text-[11px] font-bold text-warm-500 uppercase tracking-wider">
+          {loading ? 'Chargement…' : `${modules?.length ?? 0} module(s) assigné(s)`}
+        </p>
+        {canAssign && (
+          <button
+            type="button"
+            onClick={() => setShowAffecter(v => !v)}
+            className="btn-secondary flex items-center gap-1.5 text-xs py-1"
+          >
+            <Layers size={13} /> {showAffecter ? 'Fermer' : 'Affecter des modules'}
+          </button>
+        )}
+      </div>
+
+      {canAssign && showAffecter && (
+        <AffecterPanel formateur={formateur} onDone={refresh} />
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 py-3 text-xs text-warm-400">
+          <Spinner size="sm" /> Chargement des modules...
+        </div>
+      ) : !modules || modules.length === 0 ? (
+        <div className="py-3 text-xs text-warm-400 italic">
+          Aucun module assigné à ce formateur.
+        </div>
+      ) : modules.map(m => (
         <div key={m.id} className="flex items-start gap-3 bg-warm-50 rounded-xl px-4 py-2.5 border border-warm-100">
           {/* Info module */}
           <div className="flex-1 min-w-0">
@@ -84,6 +255,25 @@ function FormateurModules({ formateurId }) {
               )}
             </div>
           </div>
+
+          {canAssign && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await moduleService.removeFormateur(m.id)
+                  toast.success('Module retiré')
+                  refresh()
+                } catch (e) {
+                  toast.error(e.response?.data?.message || 'Erreur')
+                }
+              }}
+              className="p-1 rounded-lg hover:bg-red-50 text-warm-300 hover:text-red-500 flex-shrink-0"
+              title="Retirer ce module au formateur"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -212,6 +402,7 @@ function FormatHelp({ onClose }) {
 
 // ── Page principale ─────────────────────────────────────────────────────────
 export default function FormateursPage() {
+  const { isChefPole } = useAuth()
   const [formateurs, setFormateurs]     = useState([])
   const [loading, setLoading]           = useState(true)
   const [search, setSearch]             = useState('')
@@ -294,7 +485,11 @@ export default function FormateursPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="page-title">Formateurs</h1>
-          <p className="page-subtitle">Cliquez sur un formateur pour voir ses modules et groupes</p>
+          <p className="page-subtitle">
+            {isChefPole
+              ? 'Cliquez sur un formateur pour voir et gérer ses groupes et modules affectés'
+              : 'Cliquez sur un formateur pour voir ses modules et groupes'}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
@@ -411,7 +606,7 @@ export default function FormateursPage() {
                   {/* Détail modules/groupes (expandable) */}
                   {expanded[f.id] && (
                     <div className="border-t border-warm-100 bg-warm-50/40">
-                      <FormateurModules formateurId={f.id} />
+                      <FormateurModules formateur={f} canAssign={isChefPole} />
                     </div>
                   )}
                 </div>

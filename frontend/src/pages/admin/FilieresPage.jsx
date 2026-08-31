@@ -6,6 +6,7 @@ import {
 import toast from 'react-hot-toast'
 import Spinner from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { filiereService, groupeService } from '../../services/filiereService'
 import { moduleService } from '../../services/moduleService'
 
@@ -288,25 +289,6 @@ function ModulesGroupeModal({ isOpen, groupe, filiereId, onClose }) {
 }
 
 // ── Confirmation suppression ────────────────────────────────────────────────
-function ConfirmDialog({ isOpen, message, onConfirm, onCancel, loading }) {
-  if (!isOpen) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
-      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <p className="text-warm-700 mb-6">{message}</p>
-        <div className="flex justify-end gap-3">
-          <button onClick={onCancel} className="btn-secondary">Annuler</button>
-          <button onClick={onConfirm} disabled={loading} className="btn-danger flex items-center gap-2">
-            {loading ? <Spinner size="sm" /> : <Trash2 size={16} />}
-            Supprimer
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Page principale ─────────────────────────────────────────────────────────
 export default function FilieresPage() {
   const [filieres, setFilieres]   = useState([])

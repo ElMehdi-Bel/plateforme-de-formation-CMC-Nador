@@ -20,6 +20,10 @@ public interface AbsenceRepository extends JpaRepository<Absence, Long> {
 
     long countByStagiaireIdAndJustifiee(Long stagiaireId, boolean justifiee);
 
+    long countByStagiaireIdAndType(Long stagiaireId, String type);
+
+    long countByStagiaireIdAndTypeAndJustifiee(Long stagiaireId, String type, boolean justifiee);
+
     @Query("SELECT a FROM Absence a WHERE a.stagiaire.groupe.id = :groupeId AND a.dateAbsence = :date")
     List<Absence> findByGroupeIdAndDate(@Param("groupeId") Long groupeId,
                                          @Param("date") LocalDate date);
@@ -29,14 +33,18 @@ public interface AbsenceRepository extends JpaRepository<Absence, Long> {
                                                @Param("debut") LocalDate debut,
                                                @Param("fin") LocalDate fin);
 
-    List<Absence> findByStagiaireIdOrderByDateAbsenceDesc(Long stagiaireId);
+    @Query("SELECT a FROM Absence a JOIN FETCH a.stagiaire s LEFT JOIN FETCH s.groupe LEFT JOIN FETCH a.formateur " +
+           "WHERE s.id = :sid ORDER BY a.dateAbsence DESC")
+    List<Absence> findByStagiaireIdOrderByDateAbsenceDesc(@Param("sid") Long stagiaireId);
 
-    @Query("SELECT a FROM Absence a WHERE a.groupeCode = :groupeCode AND a.dateAbsence = :date AND a.heureCreneau = :creneau")
+    @Query("SELECT a FROM Absence a JOIN FETCH a.stagiaire s LEFT JOIN FETCH s.groupe LEFT JOIN FETCH a.formateur " +
+           "WHERE a.groupeCode = :groupeCode AND a.dateAbsence = :date AND a.heureCreneau = :creneau")
     List<Absence> findBySeance(@Param("groupeCode") String groupeCode,
                                 @Param("date") LocalDate date,
                                 @Param("creneau") String creneau);
 
-    @Query("SELECT a FROM Absence a WHERE a.stagiaire.groupe.id = :groupeId ORDER BY a.dateAbsence DESC")
+    @Query("SELECT a FROM Absence a JOIN FETCH a.stagiaire s LEFT JOIN FETCH s.groupe LEFT JOIN FETCH a.formateur " +
+           "WHERE s.groupe.id = :groupeId ORDER BY a.dateAbsence DESC")
     List<Absence> findByGroupeIdOrderByDate(@Param("groupeId") Long groupeId);
 
     @Query("SELECT COUNT(a) FROM Absence a WHERE a.stagiaire.id = :id")

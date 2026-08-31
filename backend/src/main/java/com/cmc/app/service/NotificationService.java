@@ -39,7 +39,7 @@ public class NotificationService {
     }
 
     public Page<Notification> findForUser(Long userId, Pageable pageable) {
-        return notificationRepository.findByDestinataire_IdOrderByCreatedAtDesc(userId, pageable);
+        return notificationRepository.findForUserWithExpediteur(userId, pageable);
     }
 
     public long countNonLues(Long userId) {

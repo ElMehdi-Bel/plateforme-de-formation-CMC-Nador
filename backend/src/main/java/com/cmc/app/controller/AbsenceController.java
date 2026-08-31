@@ -4,6 +4,7 @@ import com.cmc.app.dto.request.AbsenceRequest;
 import com.cmc.app.dto.request.AppelRequest;
 import com.cmc.app.dto.response.AbsenceResponse;
 import com.cmc.app.dto.response.ApiResponse;
+import com.cmc.app.dto.response.AppelResultResponse;
 import com.cmc.app.dto.response.PageResponse;
 import com.cmc.app.entity.Absence;
 import com.cmc.app.entity.User;
@@ -31,8 +32,8 @@ public class AbsenceController {
     private final AbsenceService absenceService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('FORMATEUR', 'ADMIN')")
-    public ResponseEntity<ApiResponse<Absence>> create(
+    @PreAuthorize("hasRole('FORMATEUR')")
+    public ResponseEntity<ApiResponse<AbsenceResponse>> create(
             @Valid @RequestBody AbsenceRequest request,
             @AuthenticationPrincipal User formateur) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -40,15 +41,16 @@ public class AbsenceController {
     }
 
     @PostMapping("/appel")
-    @PreAuthorize("hasAnyRole('FORMATEUR', 'ADMIN')")
-    public ResponseEntity<ApiResponse<List<AbsenceResponse>>> faireAppel(
+    @PreAuthorize("hasRole('FORMATEUR')")
+    public ResponseEntity<ApiResponse<AppelResultResponse>> faireAppel(
             @RequestBody AppelRequest request,
             @AuthenticationPrincipal User formateur) {
-        return ResponseEntity.ok(ApiResponse.success(absenceService.faireAppel(request, formateur)));
+        AppelResultResponse res = absenceService.faireAppel(request, formateur);
+        return ResponseEntity.ok(ApiResponse.success(res.getMessage(), res));
     }
 
     @GetMapping("/seance")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'FORMATEUR')")
     public ResponseEntity<ApiResponse<List<AbsenceResponse>>> getSeance(
             @RequestParam String groupeCode,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
@@ -57,7 +59,7 @@ public class AbsenceController {
     }
 
     @GetMapping("/stagiaire/{stagiaireId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR') or #stagiaireId == authentication.principal.id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'FORMATEUR') or #stagiaireId == authentication.principal.id")
     public ResponseEntity<ApiResponse<PageResponse<Absence>>> findByStagiairePaged(
             @PathVariable Long stagiaireId,
             @RequestParam(defaultValue = "0") int page,
@@ -74,21 +76,21 @@ public class AbsenceController {
     }
 
     @GetMapping("/stagiaire/{stagiaireId}/all")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR') or #stagiaireId == authentication.principal.id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'FORMATEUR') or #stagiaireId == authentication.principal.id")
     public ResponseEntity<ApiResponse<List<AbsenceResponse>>> findByStagiaire(
             @PathVariable Long stagiaireId) {
         return ResponseEntity.ok(ApiResponse.success(absenceService.findByStagiaire(stagiaireId)));
     }
 
     @GetMapping("/groupe/{groupeId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'FORMATEUR')")
     public ResponseEntity<ApiResponse<List<AbsenceResponse>>> findByGroupe(
             @PathVariable Long groupeId) {
         return ResponseEntity.ok(ApiResponse.success(absenceService.findByGroupe(groupeId)));
     }
 
     @GetMapping("/stagiaire/{stagiaireId}/stats")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR') or #stagiaireId == authentication.principal.id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'FORMATEUR') or #stagiaireId == authentication.principal.id")
     public ResponseEntity<ApiResponse<Map<String, Long>>> stats(@PathVariable Long stagiaireId) {
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "total", absenceService.countByStagiaire(stagiaireId),
@@ -117,7 +119,7 @@ public class AbsenceController {
     }
 
     @PutMapping("/{id}/justifier")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('GESTIONNAIRE')")
     public ResponseEntity<ApiResponse<AbsenceResponse>> justifier(
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, String> body,
@@ -127,7 +129,7 @@ public class AbsenceController {
     }
 
     @PatchMapping("/{id}/justifier")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR')")
+    @PreAuthorize("hasAnyRole('GESTIONNAIRE', 'FORMATEUR')")
     public ResponseEntity<ApiResponse<Absence>> justifierPatch(
             @PathVariable Long id,
             @RequestParam String motif,
@@ -137,7 +139,7 @@ public class AbsenceController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('GESTIONNAIRE')")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable Long id,
             @AuthenticationPrincipal User admin) {

@@ -15,19 +15,42 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
+    /**
+     * Charge l'utilisateur avec ses associations (groupe, pôle) initialisées.
+     * Utilisé par UserDetailsService pour que le principal reste utilisable
+     * hors transaction (open-in-view désactivé).
+     */
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.groupe g LEFT JOIN FETCH g.filiere LEFT JOIN FETCH u.pole WHERE u.email = :email")
+    Optional<User> findByEmailWithAssociations(@Param("email") String email);
+
+    Optional<User> findByMatricule(String matricule);
+
     boolean existsByEmail(String email);
 
     boolean existsByMatricule(String matricule);
 
     List<User> findByRole(Role role);
 
-    Page<User> findByRole(Role role, Pageable pageable);
+    long countByRole(Role role);
+
+    @Query(value = "SELECT u FROM User u LEFT JOIN FETCH u.groupe g LEFT JOIN FETCH g.filiere LEFT JOIN FETCH u.pole WHERE u.role = :role",
+           countQuery = "SELECT COUNT(u) FROM User u WHERE u.role = :role")
+    Page<User> findByRole(@Param("role") Role role, Pageable pageable);
 
     Page<User> findByRoleAndActif(Role role, boolean actif, Pageable pageable);
 
     List<User> findByGroupeId(Long groupeId);
 
-    @Query("SELECT u FROM User u WHERE u.role = :role AND " +
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.groupe g LEFT JOIN FETCH g.filiere LEFT JOIN FETCH u.pole " +
+           "WHERE g.id = :groupeId ORDER BY u.nom, u.prenom")
+    List<User> findByGroupeIdWithAssociations(@Param("groupeId") Long groupeId);
+
+    @Query(value = "SELECT u FROM User u LEFT JOIN FETCH u.groupe g LEFT JOIN FETCH g.filiere LEFT JOIN FETCH u.pole " +
+           "WHERE u.role = :role AND " +
+           "(LOWER(u.nom) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.prenom) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))",
+           countQuery = "SELECT COUNT(u) FROM User u WHERE u.role = :role AND " +
            "(LOWER(u.nom) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(u.prenom) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))")
@@ -38,6 +61,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT COUNT(u) FROM User u WHERE u.role = :role AND u.actif = true")
     long countByRoleAndActif(@Param("role") Role role);
 
-    @Query("SELECT u FROM User u LEFT JOIN FETCH u.groupe g LEFT JOIN FETCH g.filiere WHERE u.id = :id")
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.groupe g LEFT JOIN FETCH g.filiere LEFT JOIN FETCH u.pole WHERE u.id = :id")
     Optional<User> findByIdWithGroupe(@Param("id") Long id);
 }

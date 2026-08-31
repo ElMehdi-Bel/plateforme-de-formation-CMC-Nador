@@ -16,6 +16,17 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
 
     Page<Note> findByStagiaireId(Long stagiaireId, Pageable pageable);
 
+    @Query(value = "SELECT n FROM Note n JOIN FETCH n.module WHERE n.stagiaire.id = :sid",
+           countQuery = "SELECT COUNT(n) FROM Note n WHERE n.stagiaire.id = :sid")
+    Page<Note> findByStagiaireIdWithModule(@Param("sid") Long sid, Pageable pageable);
+
+    @Query("SELECT n FROM Note n JOIN FETCH n.module m WHERE n.stagiaire.groupe.id = :groupeId AND m.id = :moduleId")
+    List<Note> findByGroupeIdAndModuleIdWithModule(@Param("groupeId") Long groupeId,
+                                                   @Param("moduleId") Long moduleId);
+
+    @Query("SELECT n FROM Note n JOIN FETCH n.module WHERE n.stagiaire.id = :sid")
+    List<Note> findByStagiaireIdWithModule(@Param("sid") Long sid);
+
     List<Note> findByStagiaireIdAndModuleId(Long stagiaireId, Long moduleId);
 
     Optional<Note> findByStagiaireIdAndModuleIdAndTypeEvaluation(

@@ -177,12 +177,20 @@ public class EmploiImportService {
      * Structure: { "LUNDI": [...], "MARDI": [...], ... }
      */
     public Map<String, List<EmploiDuTemps>> getGrille(String anneeScolaire) {
-        List<EmploiDuTemps> all = emploiRepository.findAllByAnneeScolaireOrdered(anneeScolaire);
+        return toGrille(emploiRepository.findAllByAnneeScolaireOrdered(anneeScolaire));
+    }
+
+    /** Grille filtrée sur un groupe — requête ciblée, pas de scan complet. */
+    public Map<String, List<EmploiDuTemps>> getGrilleByGroupeCode(String anneeScolaire, String groupeCode) {
+        return toGrille(emploiRepository.findByAnneeAndGroupeCodeOrdered(anneeScolaire, groupeCode));
+    }
+
+    private Map<String, List<EmploiDuTemps>> toGrille(List<EmploiDuTemps> seances) {
         Map<String, List<EmploiDuTemps>> grille = new LinkedHashMap<>();
         for (String jour : JOURS) {
             grille.put(jour, new ArrayList<>());
         }
-        for (EmploiDuTemps e : all) {
+        for (EmploiDuTemps e : seances) {
             grille.computeIfAbsent(e.getJourSemaine(), k -> new ArrayList<>()).add(e);
         }
         return grille;

@@ -5,13 +5,17 @@ import com.cmc.app.dto.response.AuthResponse;
 import com.cmc.app.entity.RefreshToken;
 import com.cmc.app.entity.User;
 import com.cmc.app.exception.InvalidTokenException;
+import com.cmc.app.exception.TooManyAttemptsException;
 import com.cmc.app.repository.RefreshTokenRepository;
 import com.cmc.app.repository.UserRepository;
 import com.cmc.app.security.JwtService;
+import com.cmc.app.security.LoginAttemptService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -30,17 +34,32 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final AuditService auditService;
+    private final LoginAttemptService loginAttemptService;
+    private final HttpServletRequest httpRequest;
 
     @Value("${app.jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+        String clientKey = clientIp();
+        if (loginAttemptService.isBlocked(clientKey)) {
+            throw new TooManyAttemptsException(
+                "Trop de tentatives de connexion. Réessayez dans quelques minutes.");
+        }
 
-        User user = (User) authentication.getPrincipal();
+        User user;
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+            user = (User) authentication.getPrincipal();
+        } catch (BadCredentialsException e) {
+            loginAttemptService.loginFailed(clientKey);
+            throw e;
+        }
+
+        loginAttemptService.loginSucceeded(clientKey);
         String accessToken = jwtService.generateAccessToken(user);
         RefreshToken refreshToken = createRefreshToken(user);
 
@@ -86,6 +105,14 @@ public class AuthService {
     public void logout(User user) {
         refreshTokenRepository.deleteByUser(user);
         auditService.log(user, "LOGOUT", "User", user.getId(), "Déconnexion");
+    }
+
+    private String clientIp() {
+        String forwarded = httpRequest.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return httpRequest.getRemoteAddr();
     }
 
     private RefreshToken createRefreshToken(User user) {

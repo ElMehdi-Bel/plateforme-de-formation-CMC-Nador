@@ -19,17 +19,22 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (!userRepository.existsByEmail("admin@cmc-nador.ma")) {
-            User admin = User.builder()
-                    .nom("Admin")
-                    .prenom("CMC")
-                    .email("admin@cmc-nador.ma")
-                    .password(passwordEncoder.encode("Admin@2024"))
-                    .role(Role.ADMIN)
-                    .actif(true)
-                    .build();
-            userRepository.save(admin);
-            log.info("Admin account created: admin@cmc-nador.ma / Admin@2024");
-        }
+        seedUser("admin@cmc-nador.ma",        "Admin@2024",   "Admin",        "CMC", Role.ADMIN);
+        seedUser("chef@cmc-nador.ma",         "Chef@2024",    "Chef",         "Pole", Role.CHEF_DE_POLE);
+        seedUser("gestionnaire@cmc-nador.ma", "Gestion@2024", "Gestionnaire", "Stagiaires", Role.GESTIONNAIRE);
+    }
+
+    private void seedUser(String email, String rawPassword, String prenom, String nom, Role role) {
+        if (userRepository.existsByEmail(email)) return;
+        User user = User.builder()
+                .nom(nom)
+                .prenom(prenom)
+                .email(email)
+                .password(passwordEncoder.encode(rawPassword))
+                .role(role)
+                .actif(true)
+                .build();
+        userRepository.save(user);
+        log.info("{} account created: {} / {}", role, email, rawPassword);
     }
 }

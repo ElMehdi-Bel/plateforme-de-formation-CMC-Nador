@@ -3,23 +3,46 @@ import { useAuth } from '../../context/AuthContext'
 import {
   LayoutDashboard, Users, BookOpen, FileText, Calendar,
   UserCheck, Bell, BarChart3, ClipboardList, LogOut,
-  GraduationCap, School, ShieldCheck,
+  GraduationCap, School, ShieldCheck, Layers, DoorOpen, FileBarChart,
 } from 'lucide-react'
 import cmcLogo from '../../Cmc.jpg'
 
 const adminNav = [
   { to: '/admin/dashboard',     icon: LayoutDashboard, label: 'Tableau de bord' },
+  { to: '/admin/personnel',     icon: ShieldCheck,     label: 'Personnel' },
   { to: '/admin/stagiaires',    icon: Users,           label: 'Stagiaires' },
   { to: '/admin/formateurs',    icon: GraduationCap,   label: 'Formateurs' },
   { to: '/admin/filieres',      icon: School,          label: 'Filières & Groupes' },
   { to: '/admin/modules',       icon: BookOpen,        label: 'Modules' },
+  { to: '/admin/poles',         icon: Layers,          label: 'Pôles' },
+  { to: '/admin/salles',        icon: DoorOpen,        label: 'Salles' },
   { to: '/admin/emplois',       icon: Calendar,        label: 'Emplois du temps' },
-  { to: '/admin/notes',         icon: FileText,        label: 'Notes' },
   { to: '/admin/absences',      icon: UserCheck,       label: 'Absences' },
   { to: '/admin/demandes',      icon: ClipboardList,   label: 'Demandes' },
   { to: '/admin/notifications', icon: Bell,            label: 'Notifications' },
   { to: '/admin/statistiques',  icon: BarChart3,       label: 'Statistiques' },
+  { to: '/admin/roles',         icon: ShieldCheck,     label: 'Rôles' },
   { to: '/admin/auditlogs',     icon: ShieldCheck,     label: 'Audit Logs' },
+]
+
+const chefNav = [
+  { to: '/chef/dashboard',      icon: LayoutDashboard, label: 'Tableau de bord' },
+  { to: '/chef/emplois',        icon: Calendar,        label: 'Emplois du temps' },
+  { to: '/chef/modules',        icon: BookOpen,        label: 'Modules' },
+  { to: '/chef/formateurs',     icon: GraduationCap,   label: 'Formateurs & affectation' },
+  { to: '/chef/statistiques',   icon: BarChart3,       label: 'Statistiques' },
+  { to: '/chef/bilans',         icon: FileBarChart,    label: 'Bilans' },
+  { to: '/chef/notifications',  icon: Bell,            label: 'Notifications' },
+]
+
+const gestionnaireNav = [
+  { to: '/gestionnaire/dashboard',     icon: LayoutDashboard, label: 'Tableau de bord' },
+  { to: '/gestionnaire/stagiaires',    icon: Users,           label: 'Stagiaires' },
+  { to: '/gestionnaire/emplois',       icon: Calendar,        label: 'Emplois du temps' },
+  { to: '/gestionnaire/absences',      icon: UserCheck,       label: 'Absences' },
+  { to: '/gestionnaire/demandes',      icon: ClipboardList,   label: 'Demandes' },
+  { to: '/gestionnaire/documents',     icon: FileText,        label: 'Documents' },
+  { to: '/gestionnaire/notifications', icon: Bell,            label: 'Notifications' },
 ]
 
 const stagiaireNav = [
@@ -60,11 +83,27 @@ function GeometricPattern() {
   )
 }
 
-export default function Sidebar({ collapsed }) {
-  const { user, logout, isAdmin, isFormateur } = useAuth()
+const NAV_BY_ROLE = {
+  ADMIN: adminNav,
+  CHEF_DE_POLE: chefNav,
+  GESTIONNAIRE: gestionnaireNav,
+  FORMATEUR: formateurNav,
+  STAGIAIRE: stagiaireNav,
+}
 
-  const nav = isAdmin ? adminNav : isFormateur ? formateurNav : stagiaireNav
-  const roleLabel = isAdmin ? 'Administrateur' : isFormateur ? 'Formateur' : 'Stagiaire'
+const LABEL_BY_ROLE = {
+  ADMIN: 'Administrateur',
+  CHEF_DE_POLE: 'Chef de pôle',
+  GESTIONNAIRE: 'Gestionnaire des stagiaires',
+  FORMATEUR: 'Formateur',
+  STAGIAIRE: 'Stagiaire',
+}
+
+export default function Sidebar({ collapsed }) {
+  const { user, logout } = useAuth()
+
+  const nav = NAV_BY_ROLE[user?.role] ?? stagiaireNav
+  const roleLabel = LABEL_BY_ROLE[user?.role] ?? 'Utilisateur'
 
   return (
     <aside

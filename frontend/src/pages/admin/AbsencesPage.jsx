@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
-import { ClipboardList, History, Check, X, Trash2 } from 'lucide-react'
+import { useEffect, useState, Fragment } from 'react'
+import { ClipboardList, History, Check, X, Trash2, ChevronDown, ChevronRight, AlertCircle, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Spinner from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { groupeService } from '../../services/groupeService'
 import { absenceService } from '../../services/absenceService'
 import { userService } from '../../services/userService'
+import { useAuth } from '../../context/AuthContext'
 
 const CRENEAUX = [
   '8H30 -- 11H00',
@@ -183,26 +185,40 @@ function OngletAppel({ groupes }) {
   )
 }
 
-function OngletHistorique({ groupes }) {
+function OngletHistorique({ groupes, canManage }) {
   const [selectedGroupe, setSelectedGroupe] = useState('')
+  const [stagiaires, setStagiaires] = useState([])
   const [absences, setAbsences] = useState([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [expanded, setExpanded] = useState({})
   const [justifModal, setJustifModal] = useState({ open: false, id: null })
   const [motif, setMotif] = useState('')
   const [saving, setSaving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null })
 
   const handleCharger = async () => {
     if (!selectedGroupe) return toast.error('Veuillez choisir un groupe')
     setLoading(true)
+    setError(null)
+    setExpanded({})
     try {
-      const r = await absenceService.findByGroupe(selectedGroupe)
-      setAbsences(r.data.data || [])
-    } catch {
-      toast.error('Erreur lors du chargement')
+      const [su, ab] = await Promise.all([
+        userService.findByGroupe(selectedGroupe),
+        absenceService.findByGroupe(selectedGroupe),
+      ])
+      setStagiaires(su.data.data || [])
+      setAbsences(ab.data.data || [])
+    } catch (e) {
+      setStagiaires([])
+      setAbsences([])
+      setError(e.response?.data?.message || 'Erreur lors du chargement')
     } finally {
       setLoading(false)
     }
   }
+
+  const reload = handleCharger
 
   const handleJustifier = async () => {
     setSaving(true)
@@ -211,7 +227,7 @@ function OngletHistorique({ groupes }) {
       toast.success('Absence justifiée')
       setJustifModal({ open: false, id: null })
       setMotif('')
-      handleCharger()
+      reload()
     } catch {
       toast.error('Erreur lors de la justification')
     } finally {
@@ -219,14 +235,28 @@ function OngletHistorique({ groupes }) {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer cette absence ?')) return
+  const handleDelete = async () => {
+    const id = confirmDelete.id
+    setSaving(true)
     try {
       await absenceService.delete(id)
       toast.success('Absence supprimée')
       setAbsences(prev => prev.filter(a => a.id !== id))
+      setConfirmDelete({ open: false, id: null })
     } catch {
       toast.error('Erreur lors de la suppression')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const parStagiaire = (id) => absences.filter(a => a.stagiaireId === id)
+  const stats = (id) => {
+    const list = parStagiaire(id)
+    return {
+      total: list.length,
+      retards: list.filter(a => a.type === 'RETARD').length,
+      nonJust: list.filter(a => !a.justifiee && a.type !== 'RETARD').length,
     }
   }
 
@@ -250,62 +280,91 @@ function OngletHistorique({ groupes }) {
 
       {loading ? (
         <Spinner className="mt-8" size="lg" />
-      ) : absences.length > 0 ? (
-        <div className="card overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-left">
-                  <th className="px-4 py-3 text-xs font-medium text-gray-500">Stagiaire</th>
-                  <th className="px-4 py-3 text-xs font-medium text-gray-500">Date</th>
-                  <th className="px-4 py-3 text-xs font-medium text-gray-500">Créneau</th>
-                  <th className="px-4 py-3 text-xs font-medium text-gray-500">Justifiée</th>
-                  <th className="px-4 py-3 text-xs font-medium text-gray-500">Motif</th>
-                  <th className="px-4 py-3 text-xs font-medium text-gray-500 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {absences.map(a => (
-                  <tr key={a.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2.5 font-medium">{a.stagiairePrenom} {a.stagiaireNom}</td>
-                    <td className="px-4 py-2.5 text-gray-600">{a.dateAbsence}</td>
-                    <td className="px-4 py-2.5 text-gray-600 text-xs">{a.heureCreneau || '—'}</td>
-                    <td className="px-4 py-2.5">
-                      {a.justifiee ? (
-                        <span className="text-green-600 font-medium">Oui</span>
-                      ) : (
-                        <span className="text-red-500 font-medium">Non</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 text-gray-500 text-xs max-w-xs truncate">{a.motif || '—'}</td>
-                    <td className="px-4 py-2.5 text-center">
-                      <div className="flex justify-center gap-2">
-                        {!a.justifiee && (
-                          <button
-                            onClick={() => { setJustifModal({ open: true, id: a.id }); setMotif('') }}
-                            className="p-1.5 rounded text-green-600 hover:bg-green-50"
-                            title="Justifier"
-                          >
-                            <Check size={14} />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDelete(a.id)}
-                          className="p-1.5 rounded text-red-400 hover:bg-red-50"
-                          title="Supprimer"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      ) : error ? (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-5">
+          <AlertCircle size={20} className="text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-red-700">Erreur de chargement</p>
+            <p className="text-sm text-red-600 mt-0.5">{error}</p>
           </div>
         </div>
+      ) : stagiaires.length > 0 ? (
+        <div className="card overflow-hidden p-0">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-left">
+                <th className="px-4 py-3 text-xs font-medium text-gray-500">Stagiaire</th>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 text-center">Absences</th>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 text-center">Non justifiées</th>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 text-center">Retards</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {stagiaires.map(s => {
+                const st = stats(s.id)
+                const open = !!expanded[s.id]
+                return (
+                  <Fragment key={s.id}>
+                    <tr
+                      onClick={() => setExpanded(p => ({ ...p, [s.id]: !p[s.id] }))}
+                      className={`cursor-pointer hover:bg-gray-50 ${open ? 'bg-primary-50/30' : ''}`}
+                    >
+                      <td className="px-4 py-2.5 font-medium flex items-center gap-2">
+                        {open ? <ChevronDown size={14} className="text-primary-600" /> : <ChevronRight size={14} className="text-gray-400" />}
+                        {s.fullName || `${s.prenom} ${s.nom}`}
+                      </td>
+                      <td className="px-4 py-2.5 text-center">{st.total || <span className="text-gray-300">0</span>}</td>
+                      <td className={`px-4 py-2.5 text-center font-medium ${st.nonJust > 0 ? 'text-red-500' : 'text-gray-300'}`}>{st.nonJust}</td>
+                      <td className={`px-4 py-2.5 text-center font-medium ${st.retards > 0 ? 'text-amber-600' : 'text-gray-300'}`}>{st.retards}</td>
+                    </tr>
+                    {open && (
+                      <tr>
+                        <td colSpan={4} className="bg-gray-50/60 px-4 py-3">
+                          {parStagiaire(s.id).length === 0 ? (
+                            <p className="text-xs text-gray-400">Aucune absence ni retard.</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {parStagiaire(s.id).map(a => (
+                                <div key={a.id} className="flex items-center justify-between bg-white border border-gray-100 rounded-lg px-3 py-2">
+                                  <div className="flex items-center gap-3 text-xs">
+                                    {a.type === 'RETARD'
+                                      ? <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full"><Clock size={11} /> Retard</span>
+                                      : a.justifiee
+                                        ? <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded-full"><Check size={11} /> Justifiée</span>
+                                        : <span className="inline-flex items-center gap-1 bg-red-100 text-red-600 px-2 py-0.5 rounded-full"><X size={11} /> Non justifiée</span>}
+                                    <span className="text-gray-700 font-medium">{a.dateAbsence}</span>
+                                    <span className="text-gray-400">{a.heureCreneau || '—'}</span>
+                                    {a.motif && <span className="text-gray-400 italic">— {a.motif}</span>}
+                                  </div>
+                                  {canManage && (
+                                    <div className="flex gap-1.5">
+                                      {!a.justifiee && a.type !== 'RETARD' && (
+                                        <button onClick={() => { setJustifModal({ open: true, id: a.id }); setMotif('') }}
+                                          className="p-1 rounded text-green-600 hover:bg-green-50" title="Justifier">
+                                          <Check size={13} />
+                                        </button>
+                                      )}
+                                      <button onClick={() => setConfirmDelete({ open: true, id: a.id })}
+                                        className="p-1 rounded text-red-400 hover:bg-red-50" title="Supprimer">
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       ) : selectedGroupe && !loading ? (
-        <div className="card text-center py-10 text-gray-400">Aucune absence enregistrée pour ce groupe</div>
+        <div className="card text-center py-10 text-gray-400">Aucun stagiaire dans ce groupe</div>
       ) : null}
 
       {/* Modal justification */}
@@ -329,12 +388,21 @@ function OngletHistorique({ groupes }) {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={confirmDelete.open}
+        message="Supprimer cette absence ? Cette action est irréversible."
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete({ open: false, id: null })}
+        loading={saving}
+      />
     </div>
   )
 }
 
 export default function AbsencesPage() {
-  const [onglet, setOnglet] = useState('appel')
+  const { isFormateur, isGestionnaire } = useAuth()
+  const [onglet, setOnglet] = useState(isFormateur ? 'appel' : 'historique')
   const [groupes, setGroupes] = useState([])
   const [loadingInit, setLoadingInit] = useState(true)
 
@@ -350,36 +418,46 @@ export default function AbsencesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Gestion des Absences</h1>
-        <p className="text-gray-500 text-sm mt-1">Faire l'appel et consulter l'historique des absences</p>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {isGestionnaire ? 'Suivi des Absences' : 'Absences'}
+        </h1>
+        <p className="text-gray-500 text-sm mt-1">
+          {isFormateur
+            ? "Faire l'appel et consulter l'historique des absences"
+            : isGestionnaire
+              ? "Consulter l'historique et justifier les absences"
+              : "Consultation de l'historique des absences"}
+        </p>
       </div>
 
       {/* Onglets */}
-      <div className="flex gap-1 border-b border-gray-200">
-        <button
-          onClick={() => setOnglet('appel')}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            onglet === 'appel' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <ClipboardList size={16} />
-          Faire l'appel
-        </button>
-        <button
-          onClick={() => setOnglet('historique')}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            onglet === 'historique' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <History size={16} />
-          Historique
-        </button>
-      </div>
+      {isFormateur && (
+        <div className="flex gap-1 border-b border-gray-200">
+          <button
+            onClick={() => setOnglet('appel')}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              onglet === 'appel' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <ClipboardList size={16} />
+            Faire l'appel
+          </button>
+          <button
+            onClick={() => setOnglet('historique')}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              onglet === 'historique' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <History size={16} />
+            Historique
+          </button>
+        </div>
+      )}
 
-      {onglet === 'appel' ? (
+      {onglet === 'appel' && isFormateur ? (
         <OngletAppel groupes={groupes} />
       ) : (
-        <OngletHistorique groupes={groupes} />
+        <OngletHistorique groupes={groupes} canManage={isGestionnaire} />
       )}
     </div>
   )

@@ -34,9 +34,11 @@ export default function LoginPage() {
     try {
       const userData = await login(data.email, data.password)
       const redirects = {
-        ADMIN:     '/admin/dashboard',
-        FORMATEUR: '/formateur/dashboard',
-        STAGIAIRE: '/stagiaire/dashboard',
+        ADMIN:         '/admin/dashboard',
+        CHEF_DE_POLE:  '/chef/dashboard',
+        GESTIONNAIRE:  '/gestionnaire/dashboard',
+        FORMATEUR:     '/formateur/dashboard',
+        STAGIAIRE:     '/stagiaire/dashboard',
       }
       toast.success(`Bienvenue, ${userData.fullName}!`)
       navigate(redirects[userData.role] || '/')

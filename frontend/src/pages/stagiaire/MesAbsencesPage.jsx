@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { UserCheck, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { UserCheck, CheckCircle, XCircle, AlertCircle, ShieldAlert } from 'lucide-react'
 import { absenceService } from '../../services/absenceService'
+import { disciplineService } from '../../services/disciplineService'
 import Spinner from '../../components/ui/Spinner'
 import toast from 'react-hot-toast'
 
@@ -8,6 +9,7 @@ export default function MesAbsencesPage() {
   const [absences, setAbsences]   = useState([])
   const [total, setTotal]         = useState(0)
   const [injustifiees, setInjust] = useState(0)
+  const [discipline, setDiscipline] = useState(null)
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(null)
 
@@ -33,9 +35,11 @@ export default function MesAbsencesPage() {
         setTotal(data.total ?? 0)
         setInjust(data.injustifiees ?? 0)
       })
-      .catch(() => {
-        // stats non critiques, on ignore l'erreur silencieusement
-      })
+      .catch(() => {})
+
+    disciplineService.me()
+      .then(r => setDiscipline(r.data?.data))
+      .catch(() => {})
   }, [])
 
   return (
@@ -60,7 +64,7 @@ export default function MesAbsencesPage() {
       ) : (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="card text-center !py-5">
               <p className="text-3xl font-bold text-gray-800">{total}</p>
               <p className="text-xs text-gray-500 mt-1">Total absences</p>
@@ -73,7 +77,56 @@ export default function MesAbsencesPage() {
               <p className="text-3xl font-bold text-green-600">{total - injustifiees}</p>
               <p className="text-xs text-gray-500 mt-1">Justifiées</p>
             </div>
+            <div className="card text-center !py-5">
+              <p className="text-3xl font-bold text-primary-600">{discipline?.nbRetards ?? 0}</p>
+              <p className="text-xs text-gray-500 mt-1">Retards</p>
+            </div>
           </div>
+
+          {/* Assiduité & discipline (grille de notation) */}
+          {discipline && (
+            <div className="card space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+                  <ShieldAlert size={16} className="text-primary-600" /> Assiduité & discipline
+                </h2>
+                <div className="flex items-baseline gap-4 text-sm">
+                  <span>Assiduité&nbsp;
+                    <strong className={discipline.noteAssiduite >= 7 ? 'text-green-600' : discipline.noteAssiduite >= 4 ? 'text-orange-500' : 'text-red-600'}>
+                      {discipline.noteAssiduite}/10
+                    </strong>
+                  </span>
+                  <span>Comportement&nbsp;<strong>{discipline.noteComportement}/5</strong></span>
+                  <span>Note de discipline&nbsp;<strong className="text-primary-700">{discipline.noteDiscipline}/15</strong></span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div><span className="text-gray-400 text-xs block">Absences (séances)</span>{discipline.nbAbsencesSeances}</div>
+                <div><span className="text-gray-400 text-xs block">Équiv. journées</span>{discipline.nbJournees}</div>
+                <div><span className="text-gray-400 text-xs block">Heures manquées</span>{discipline.heuresAbsence} h</div>
+                <div><span className="text-gray-400 text-xs block">Incidents</span>{discipline.nbIncidents}</div>
+              </div>
+
+              {discipline.palierAssiduite > 0 && (
+                <p className="text-sm text-gray-600">
+                  Sanction d'assiduité en cours :{' '}
+                  <strong>{discipline.sanctionAssiduite}</strong>{' '}
+                  <span className="text-gray-400">(décision : {discipline.autoriteAssiduite})</span>
+                </p>
+              )}
+
+              {(discipline.exclusionDefinitive || discipline.palierAssiduite >= 6) && (
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <span>
+                    Seuil critique atteint — un passage devant le Conseil de Discipline est possible.
+                    Régularisez vos absences auprès du gestionnaire.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Liste */}
           {absences.length === 0 ? (

@@ -4,8 +4,23 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { notificationService } from '../../services/filiereService'
 
+const ROLE_LABEL = {
+  ADMIN: 'Administrateur',
+  CHEF_DE_POLE: 'Chef de pôle',
+  GESTIONNAIRE: 'Gestionnaire des stagiaires',
+  FORMATEUR: 'Formateur',
+  STAGIAIRE: 'Stagiaire',
+}
+const ROLE_PREFIX = {
+  ADMIN: 'admin',
+  CHEF_DE_POLE: 'chef',
+  GESTIONNAIRE: 'gestionnaire',
+  FORMATEUR: 'formateur',
+  STAGIAIRE: 'stagiaire',
+}
+
 export default function Header({ onToggleSidebar }) {
-  const { user, isAdmin, isFormateur } = useAuth()
+  const { user } = useAuth()
   const [notifCount, setNotifCount] = useState(0)
 
   useEffect(() => {
@@ -14,13 +29,8 @@ export default function Header({ onToggleSidebar }) {
       .catch(() => {})
   }, [])
 
-  const notifPath = isAdmin
-    ? '/admin/notifications'
-    : isFormateur
-    ? '/formateur/notifications'
-    : '/stagiaire/notifications'
-
-  const roleLabel = isAdmin ? 'Administrateur' : isFormateur ? 'Formateur' : 'Stagiaire'
+  const notifPath = `/${ROLE_PREFIX[user?.role] || 'stagiaire'}/notifications`
+  const roleLabel = ROLE_LABEL[user?.role] || 'Utilisateur'
 
   return (
     <header className="h-16 bg-white/80 backdrop-blur-md border-b border-warm-100 sticky top-0 z-30
@@ -55,8 +65,12 @@ export default function Header({ onToggleSidebar }) {
         {/* Divider */}
         <div className="w-px h-5 bg-warm-200 mx-1.5"/>
 
-        {/* User chip */}
-        <div className="flex items-center gap-2.5">
+        {/* User chip → Mon compte */}
+        <Link
+          to="/mon-compte"
+          className="flex items-center gap-2.5 rounded-xl px-1.5 py-1 hover:bg-warm-100 transition-colors"
+          title="Mon compte"
+        >
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-700
                           flex items-center justify-center shadow-sm flex-shrink-0">
             <span className="text-white text-sm font-bold">
@@ -67,7 +81,7 @@ export default function Header({ onToggleSidebar }) {
             <p className="font-semibold text-sm text-warm-900">{user?.fullName}</p>
             <p className="text-[11px] text-warm-400 font-medium">{roleLabel}</p>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   )

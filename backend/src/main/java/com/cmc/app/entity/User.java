@@ -4,6 +4,8 @@ import com.cmc.app.enums.Role;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -75,7 +77,8 @@ public class User implements UserDetails {
     private Double moyenneBac;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 30)
     private Role role;
 
     @Column(nullable = false)
@@ -92,6 +95,20 @@ public class User implements UserDetails {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "groupe_id")
     private Groupe groupe;
+
+    /**
+     * Pôle de rattachement (surtout pour CHEF_DE_POLE et FORMATEUR).
+     * Nullable — le périmètre par pôle est indicatif, l'autorisation reste au niveau rôle.
+     */
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pole_id")
+    private Pole pole;
+
+    @JsonIgnore
+    public Long getPoleId()  { return pole != null ? pole.getId()  : null; }
+    @JsonIgnore
+    public String getPoleNom() { return pole != null ? pole.getNom() : null; }
 
     @PrePersist
     protected void onCreate() {

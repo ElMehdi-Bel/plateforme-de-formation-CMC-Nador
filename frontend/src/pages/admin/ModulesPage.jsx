@@ -6,10 +6,12 @@ import {
 import toast from 'react-hot-toast'
 import Spinner from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { filiereService } from '../../services/filiereService'
 import { moduleService } from '../../services/moduleService'
 import { importService } from '../../services/importService'
 import { userService } from '../../services/userService'
+import { useAuth } from '../../context/AuthContext'
 
 // ── Formulaire Module ───────────────────────────────────────────────────────
 function ModuleForm({ initial, filiereId, filieres, onSubmit, onCancel, loading }) {
@@ -133,27 +135,12 @@ function FormateurModal({ isOpen, moduleName, formateurs, currentFormateurId, on
 }
 
 // ── Confirmation suppression ────────────────────────────────────────────────
-function ConfirmDialog({ isOpen, message, onConfirm, onCancel, loading }) {
-  if (!isOpen) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
-      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <p className="text-warm-700 mb-6">{message}</p>
-        <div className="flex justify-end gap-3">
-          <button onClick={onCancel} className="btn-secondary">Annuler</button>
-          <button onClick={onConfirm} disabled={loading} className="btn-danger flex items-center gap-2">
-            {loading ? <Spinner size="sm" /> : <Trash2 size={16} />}
-            Supprimer
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Page principale ─────────────────────────────────────────────────────────
 export default function ModulesPage() {
+  const { isAdmin, isChefPole } = useAuth()
+  const canCrud = isAdmin        // "Gérer les modules" = Administrateur
+  const canAssign = isChefPole   // "Affecter les modules aux formateurs" = Chef de pôle
+
   const [filieres, setFilieres]   = useState([])
   const [modules, setModules]     = useState({})
   const [expanded, setExpanded]   = useState({})
@@ -285,37 +272,43 @@ export default function ModulesPage() {
             {totalModules > 0 && ` · ${totalModules} module(s) chargé(s)`}
           </p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setModalModule({ open: true, data: null, filiereId: null })}
-            className="btn-secondary flex items-center gap-2"
-          >
-            <Plus size={16} /> Nouveau module
-          </button>
-          <button
-            onClick={() => fileRef.current.click()}
-            disabled={importing}
-            className="btn-primary flex items-center gap-2"
-          >
-            {importing ? <Spinner size="sm" /> : <Upload size={16} />}
-            {importing ? 'Import...' : 'Importer Excel'}
-          </button>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} />
-        </div>
+        {canCrud && (
+          <div className="flex gap-3">
+            <button
+              onClick={() => setModalModule({ open: true, data: null, filiereId: null })}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Plus size={16} /> Nouveau module
+            </button>
+            <button
+              onClick={() => fileRef.current.click()}
+              disabled={importing}
+              className="btn-primary flex items-center gap-2"
+            >
+              {importing ? <Spinner size="sm" /> : <Upload size={16} />}
+              {importing ? 'Import...' : 'Importer Excel'}
+            </button>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} />
+          </div>
+        )}
       </div>
 
       {/* Format Excel */}
-      <div className="bg-primary-50 border border-primary-100 rounded-xl p-3 text-xs text-primary-800">
-        <strong>Format Excel :</strong>&nbsp;
-        Filière | Année de formation | Code module | Module | Masse horaire
-        &nbsp;— ligne 1 = en-têtes, données à partir de la ligne 2.
-      </div>
+      {canCrud && (
+        <div className="bg-primary-50 border border-primary-100 rounded-xl p-3 text-xs text-primary-800">
+          <strong>Format Excel :</strong>&nbsp;
+          Filière | Année de formation | Code module | Module | Masse horaire
+          &nbsp;— ligne 1 = en-têtes, données à partir de la ligne 2.
+        </div>
+      )}
 
       {/* Astuce formateur */}
-      <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-800 flex items-center gap-2">
-        <UserCheck size={14} className="flex-shrink-0 text-amber-600" />
-        Cliquez sur <strong>Assigner</strong> dans la colonne Formateur pour affecter un formateur à un module.
-      </div>
+      {canAssign && (
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-800 flex items-center gap-2">
+          <UserCheck size={14} className="flex-shrink-0 text-amber-600" />
+          Cliquez sur <strong>Assigner</strong> dans la colonne Formateur pour affecter un formateur à un module.
+        </div>
+      )}
 
       {/* Liste filières avec modules */}
       {loading ? (
@@ -352,13 +345,15 @@ export default function ModulesPage() {
                       <BookOpen size={13} /> {modules[filiere.id].length} module(s)
                     </span>
                   )}
-                  <button
-                    onClick={() => setModalModule({ open: true, data: null, filiereId: filiere.id })}
-                    className="p-2 rounded-lg text-primary-600 hover:bg-primary-50 transition-colors"
-                    title="Ajouter un module"
-                  >
-                    <Plus size={16} />
-                  </button>
+                  {canCrud && (
+                    <button
+                      onClick={() => setModalModule({ open: true, data: null, filiereId: filiere.id })}
+                      className="p-2 rounded-lg text-primary-600 hover:bg-primary-50 transition-colors"
+                      title="Ajouter un module"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -369,13 +364,17 @@ export default function ModulesPage() {
                     <div className="py-6 flex justify-center"><Spinner size="sm" /></div>
                   ) : modules[filiere.id].length === 0 ? (
                     <div className="py-5 text-center text-warm-400 text-sm">
-                      Aucun module —{' '}
-                      <button
-                        onClick={() => setModalModule({ open: true, data: null, filiereId: filiere.id })}
-                        className="text-primary-600 hover:underline"
-                      >
-                        Ajouter un module
-                      </button>
+                      Aucun module{canCrud && (
+                        <>
+                          {' '}—{' '}
+                          <button
+                            onClick={() => setModalModule({ open: true, data: null, filiereId: filiere.id })}
+                            className="text-primary-600 hover:underline"
+                          >
+                            Ajouter un module
+                          </button>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
@@ -388,7 +387,7 @@ export default function ModulesPage() {
                             <th className="px-5 py-2 text-xs font-bold text-warm-500 uppercase tracking-wider text-right">Masse h.</th>
                             <th className="px-5 py-2 text-xs font-bold text-warm-500 uppercase tracking-wider text-right">Coef.</th>
                             <th className="px-5 py-2 text-xs font-bold text-warm-500 uppercase tracking-wider">Formateur</th>
-                            <th className="px-5 py-2 text-xs font-bold text-warm-500 uppercase tracking-wider text-center">Actions</th>
+                            {canCrud && <th className="px-5 py-2 text-xs font-bold text-warm-500 uppercase tracking-wider text-center">Actions</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-warm-50">
@@ -408,7 +407,11 @@ export default function ModulesPage() {
                               </td>
                               <td className="px-5 py-2.5 text-right text-warm-600">{mod.coefficient}</td>
                               <td className="px-5 py-2.5">
-                                {mod.formateurNom ? (
+                                {!canAssign ? (
+                                  mod.formateurNom
+                                    ? <span className="flex items-center gap-1.5 text-warm-700 text-xs font-medium"><UserCheck size={13} className="text-primary-500" />{mod.formateurNom}</span>
+                                    : <span className="text-warm-300 text-xs">—</span>
+                                ) : mod.formateurNom ? (
                                   <button
                                     onClick={() => setModalFormateur({ open: true, moduleId: mod.id, moduleName: mod.nom, currentFormateurId: mod.formateurId })}
                                     className="flex items-center gap-1.5 text-primary-700 hover:text-primary-900 text-xs font-medium group"
@@ -426,24 +429,26 @@ export default function ModulesPage() {
                                   </button>
                                 )}
                               </td>
-                              <td className="px-5 py-2.5 text-center">
-                                <div className="flex justify-center gap-2">
-                                  <button
-                                    onClick={() => setModalModule({ open: true, data: { ...mod, filiereId: filiere.id }, filiereId: filiere.id })}
-                                    className="p-1.5 rounded text-blue-500 hover:bg-blue-50"
-                                    title="Modifier"
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => setConfirmDelete({ open: true, id: mod.id, nom: mod.nom, filiereId: filiere.id })}
-                                    className="p-1.5 rounded text-red-400 hover:bg-red-50"
-                                    title="Supprimer"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </td>
+                              {canCrud && (
+                                <td className="px-5 py-2.5 text-center">
+                                  <div className="flex justify-center gap-2">
+                                    <button
+                                      onClick={() => setModalModule({ open: true, data: { ...mod, filiereId: filiere.id }, filiereId: filiere.id })}
+                                      className="p-1.5 rounded text-blue-500 hover:bg-blue-50"
+                                      title="Modifier"
+                                    >
+                                      <Pencil size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDelete({ open: true, id: mod.id, nom: mod.nom, filiereId: filiere.id })}
+                                      className="p-1.5 rounded text-red-400 hover:bg-red-50"
+                                      title="Supprimer"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>

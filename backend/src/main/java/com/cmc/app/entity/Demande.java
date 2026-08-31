@@ -4,6 +4,8 @@ import com.cmc.app.enums.StatutDemande;
 import com.cmc.app.enums.TypeDemande;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -24,10 +26,12 @@ public class Demande {
     private User stagiaire;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "type_demande", nullable = false, length = 50)
     private TypeDemande typeDemande;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
     @Builder.Default
     private StatutDemande statut = StatutDemande.EN_ATTENTE;

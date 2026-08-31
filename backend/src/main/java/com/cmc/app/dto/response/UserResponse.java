@@ -21,5 +21,7 @@ public class UserResponse {
     private String groupeNom;
     private String groupeCode;
     private String filiereNom;
+    private Long poleId;
+    private String poleNom;
     private LocalDateTime createdAt;
 }

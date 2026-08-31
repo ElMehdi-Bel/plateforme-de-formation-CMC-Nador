@@ -34,6 +34,16 @@ public class Filiere {
     private boolean actif = true;
 
     @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pole_id")
+    private Pole pole;
+
+    @JsonIgnore
+    public Long getPoleId()  { return pole != null ? pole.getId()  : null; }
+    @JsonIgnore
+    public String getPoleNom() { return pole != null ? pole.getNom() : null; }
+
+    @JsonIgnore
     @OneToMany(mappedBy = "filiere", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<Groupe> groupes = new ArrayList<>();

@@ -19,6 +19,7 @@ public class AbsenceResponse {
     private String heureCreneau;
     private LocalDate dateAbsence;
     private boolean justifiee;
+    private String type;          // ABSENCE | RETARD
     private String motif;
     private String formateurNom;
     private LocalDateTime createdAt;
