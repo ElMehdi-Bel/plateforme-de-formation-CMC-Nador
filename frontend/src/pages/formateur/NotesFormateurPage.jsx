@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { BookOpen, Download, Upload, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react'
+import { BookOpen, Download, Upload, FileSpreadsheet, CheckCircle, AlertCircle, FileDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Spinner from '../../components/ui/Spinner'
 import { useAuth } from '../../context/AuthContext'
 import { groupeService } from '../../services/groupeService'
 import { moduleService } from '../../services/moduleService'
 import { noteService } from '../../services/noteService'
+import { documentService } from '../../services/documentService'
 
 function moyenneColor(m) {
   if (m === null || m === undefined) return 'text-gray-400'
@@ -29,6 +30,7 @@ export default function NotesFormateurPage() {
   const [loadingGrille, setLoadingGrille] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState(null)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     if (!user?.userId) return
@@ -57,6 +59,18 @@ export default function NotesFormateurPage() {
       toast.error('Erreur lors du chargement de la grille')
     } finally {
       setLoadingGrille(false)
+    }
+  }
+
+  const handleExport = async () => {
+    if (!canAction) { toast.error('Veuillez choisir un groupe et un module'); return }
+    setExporting(true)
+    try {
+      await documentService.exportNotes(selectedGroupe, selectedModule)
+    } catch {
+      toast.error("Erreur lors de l'export")
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -146,6 +160,14 @@ export default function NotesFormateurPage() {
           >
             {loadingGrille ? <Spinner size="sm" /> : <BookOpen size={16} />}
             Afficher les notes
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={!canAction || exporting}
+            className="btn-secondary flex items-center gap-2"
+          >
+            {exporting ? <Spinner size="sm" /> : <FileDown size={16} />}
+            Exporter Excel
           </button>
         </div>
       </div>

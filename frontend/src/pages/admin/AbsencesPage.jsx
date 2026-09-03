@@ -1,5 +1,5 @@
 import { useEffect, useState, Fragment } from 'react'
-import { ClipboardList, History, Check, X, Trash2, ChevronDown, ChevronRight, AlertCircle, Clock } from 'lucide-react'
+import { ClipboardList, History, Check, X, Trash2, ChevronDown, ChevronRight, AlertCircle, Clock, FileDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Spinner from '../../components/ui/Spinner'
 import Modal from '../../components/ui/Modal'
@@ -7,6 +7,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { groupeService } from '../../services/groupeService'
 import { absenceService } from '../../services/absenceService'
 import { userService } from '../../services/userService'
+import { documentService } from '../../services/documentService'
 import { useAuth } from '../../context/AuthContext'
 
 const CRENEAUX = [
@@ -196,6 +197,19 @@ function OngletHistorique({ groupes, canManage }) {
   const [motif, setMotif] = useState('')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null })
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async () => {
+    if (!selectedGroupe) return toast.error('Veuillez choisir un groupe')
+    setExporting(true)
+    try {
+      await documentService.exportAbsences(selectedGroupe)
+    } catch {
+      toast.error("Erreur lors de l'export")
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const handleCharger = async () => {
     if (!selectedGroupe) return toast.error('Veuillez choisir un groupe')
@@ -274,6 +288,10 @@ function OngletHistorique({ groupes, canManage }) {
           <button onClick={handleCharger} disabled={loading} className="btn-secondary flex items-center gap-2">
             {loading ? <Spinner size="sm" /> : <History size={16} />}
             Afficher
+          </button>
+          <button onClick={handleExport} disabled={!selectedGroupe || exporting} className="btn-secondary flex items-center gap-2">
+            {exporting ? <Spinner size="sm" /> : <FileDown size={16} />}
+            Exporter Excel
           </button>
         </div>
       </div>
