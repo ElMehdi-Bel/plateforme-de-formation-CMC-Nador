@@ -13,7 +13,7 @@ import Spinner from '../../components/ui/Spinner'
 const ROLES = [
   { value: 'CHEF_DE_POLE', label: 'Chef de pôle' },
   { value: 'GESTIONNAIRE', label: 'Gestionnaire des stagiaires' },
-  { value: 'ADMIN',        label: 'Administrateur' },
+  { value: 'FORMATEUR',    label: 'Formateur' },
 ]
 const ROLE_LABEL = Object.fromEntries(ROLES.map(r => [r.value, r.label]))
 
@@ -91,7 +91,7 @@ export default function PersonnelPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Personnel</h1>
-          <p className="page-subtitle">Comptes chefs de pôle, gestionnaires et administrateurs</p>
+          <p className="page-subtitle">Comptes chefs de pôle, gestionnaires et formateurs</p>
         </div>
         <button onClick={() => { reset({ role: roleFilter }); setShowModal(true) }} className="btn-primary flex items-center gap-2">
           <Plus size={18} /> Nouveau compte
