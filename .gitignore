@@ -7,6 +7,10 @@ backend/*.jar
 backend/*.war
 backend/*.class
 
+# Fichiers uploadés par les utilisateurs (documents/attestations des stagiaires) —
+# données personnelles, ne doivent jamais être versionnées.
+backend/uploads/
+
 # Fichiers de configuration sensibles (mots de passe DB, etc.)
 backend/src/main/resources/application-local.properties
 backend/src/main/resources/application-local.yml
