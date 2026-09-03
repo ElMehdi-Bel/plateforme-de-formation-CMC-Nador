@@ -48,6 +48,35 @@ public class DocumentController {
                 .body(xlsx);
     }
 
+    /** Notes d'un groupe/module (Excel). */
+    @GetMapping("/export-notes/{groupeId}/{moduleId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR', 'GESTIONNAIRE', 'CHEF_DE_POLE')")
+    public ResponseEntity<byte[]> exportNotes(
+            @PathVariable Long groupeId,
+            @PathVariable Long moduleId,
+            @AuthenticationPrincipal User caller) {
+        byte[] xlsx = documentService.genererExportNotes(groupeId, moduleId, caller);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=notes_groupe_" + groupeId + "_module_" + moduleId + ".xlsx")
+                .contentType(MediaType.parseMediaType(XLSX))
+                .body(xlsx);
+    }
+
+    /** Absences d'un groupe (Excel). */
+    @GetMapping("/export-absences/{groupeId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FORMATEUR', 'GESTIONNAIRE', 'CHEF_DE_POLE')")
+    public ResponseEntity<byte[]> exportAbsences(
+            @PathVariable Long groupeId,
+            @AuthenticationPrincipal User caller) {
+        byte[] xlsx = documentService.genererExportAbsences(groupeId, caller);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=absences_groupe_" + groupeId + ".xlsx")
+                .contentType(MediaType.parseMediaType(XLSX))
+                .body(xlsx);
+    }
+
     /** Relevé de notes + note de discipline (PDF). */
     @GetMapping("/releve-notes/{stagiaireId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'GESTIONNAIRE', 'FORMATEUR') or #stagiaireId == authentication.principal.id")

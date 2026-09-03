@@ -1,11 +1,15 @@
 package com.cmc.app.service;
 
+import com.cmc.app.dto.response.AbsenceResponse;
 import com.cmc.app.dto.response.BulletinResponse;
+import com.cmc.app.dto.response.NoteModuleResponse;
 import com.cmc.app.entity.Groupe;
+import com.cmc.app.entity.Module;
 import com.cmc.app.entity.User;
 import com.cmc.app.enums.Role;
 import com.cmc.app.exception.ResourceNotFoundException;
 import com.cmc.app.repository.GroupeRepository;
+import com.cmc.app.repository.ModuleRepository;
 import com.cmc.app.repository.UserRepository;
 import com.itextpdf.text.*;
 import com.itextpdf.text.pdf.PdfPCell;
@@ -40,8 +44,10 @@ public class DocumentService {
 
     private final UserRepository userRepository;
     private final GroupeRepository groupeRepository;
+    private final ModuleRepository moduleRepository;
     private final StatistiqueService statistiqueService;
     private final NoteService noteService;
+    private final AbsenceService absenceService;
     private final DisciplineService disciplineService;
     private final AuditService auditService;
 
@@ -166,6 +172,110 @@ public class DocumentService {
             return out.toByteArray();
         } catch (Exception e) {
             throw new IllegalStateException("Erreur génération liste : " + e.getMessage(), e);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Notes d'un groupe/module (Excel)
+    // ─────────────────────────────────────────────────────────────────────────
+    @Transactional(readOnly = true)
+    public byte[] genererExportNotes(Long groupeId, Long moduleId, User demandeur) {
+        Groupe g = groupeRepository.findByIdWithFiliere(groupeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Groupe non trouvé: " + groupeId));
+        Module module = moduleRepository.findById(moduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Module non trouvé: " + moduleId));
+        List<NoteModuleResponse> grille = noteService.getGrilleNotes(groupeId, moduleId);
+
+        try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = wb.createSheet("Notes");
+
+            CellStyle headerStyle = wb.createCellStyle();
+            org.apache.poi.ss.usermodel.Font hf = wb.createFont();
+            hf.setBold(true);
+            headerStyle.setFont(hf);
+
+            Row info = sheet.createRow(0);
+            info.createCell(0).setCellValue("Groupe : " + g.getNom() + "   |   Module : " + module.getNom());
+
+            String[] cols = {"#", "Nom", "Prénom", "CC (/20)", "EFM (/40)", "Moyenne (/20)"};
+            Row head = sheet.createRow(2);
+            for (int i = 0; i < cols.length; i++) {
+                Cell c = head.createCell(i);
+                c.setCellValue(cols[i]);
+                c.setCellStyle(headerStyle);
+            }
+
+            int r = 3, n = 1;
+            for (NoteModuleResponse e : grille) {
+                Row row = sheet.createRow(r++);
+                row.createCell(0).setCellValue(n++);
+                row.createCell(1).setCellValue(nullSafe(e.getStagiaireNom()));
+                row.createCell(2).setCellValue(nullSafe(e.getStagiairePrenom()));
+                row.createCell(3).setCellValue(e.getCc() != null ? String.valueOf(e.getCc()) : "—");
+                row.createCell(4).setCellValue(e.getEfm() != null ? String.valueOf(e.getEfm()) : "—");
+                row.createCell(5).setCellValue(e.getMoyenne() != null ? String.valueOf(Math.round(e.getMoyenne() * 100.0) / 100.0) : "—");
+            }
+            for (int i = 0; i < cols.length; i++) sheet.autoSizeColumn(i);
+
+            wb.write(out);
+            auditService.log(demandeur, "EXPORT_NOTES", "Groupe", groupeId,
+                    "Export Excel notes — " + g.getNom() + " / " + module.getNom());
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new IllegalStateException("Erreur export notes : " + e.getMessage(), e);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Absences d'un groupe (Excel)
+    // ─────────────────────────────────────────────────────────────────────────
+    @Transactional(readOnly = true)
+    public byte[] genererExportAbsences(Long groupeId, User demandeur) {
+        Groupe g = groupeRepository.findByIdWithFiliere(groupeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Groupe non trouvé: " + groupeId));
+        List<AbsenceResponse> absences = absenceService.findByGroupe(groupeId);
+
+        try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = wb.createSheet("Absences");
+
+            CellStyle headerStyle = wb.createCellStyle();
+            org.apache.poi.ss.usermodel.Font hf = wb.createFont();
+            hf.setBold(true);
+            headerStyle.setFont(hf);
+
+            Row info = sheet.createRow(0);
+            info.createCell(0).setCellValue("Groupe : " + g.getNom()
+                    + "   |   Total : " + absences.size());
+
+            String[] cols = {"#", "Nom", "Prénom", "Date", "Type", "Créneau", "Justifiée", "Motif", "Formateur"};
+            Row head = sheet.createRow(2);
+            for (int i = 0; i < cols.length; i++) {
+                Cell c = head.createCell(i);
+                c.setCellValue(cols[i]);
+                c.setCellStyle(headerStyle);
+            }
+
+            int r = 3, n = 1;
+            for (AbsenceResponse a : absences) {
+                Row row = sheet.createRow(r++);
+                row.createCell(0).setCellValue(n++);
+                row.createCell(1).setCellValue(nullSafe(a.getStagiaireNom()));
+                row.createCell(2).setCellValue(nullSafe(a.getStagiairePrenom()));
+                row.createCell(3).setCellValue(a.getDateAbsence() != null ? a.getDateAbsence().format(DF) : "—");
+                row.createCell(4).setCellValue("RETARD".equals(a.getType()) ? "Retard" : "Absence");
+                row.createCell(5).setCellValue(nullSafe(a.getHeureCreneau()));
+                row.createCell(6).setCellValue(a.isJustifiee() ? "Oui" : "Non");
+                row.createCell(7).setCellValue(nullSafe(a.getMotif()));
+                row.createCell(8).setCellValue(nullSafe(a.getFormateurNom()));
+            }
+            for (int i = 0; i < cols.length; i++) sheet.autoSizeColumn(i);
+
+            wb.write(out);
+            auditService.log(demandeur, "EXPORT_ABSENCES", "Groupe", groupeId,
+                    "Export Excel absences — " + g.getNom());
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new IllegalStateException("Erreur export absences : " + e.getMessage(), e);
         }
     }
 
