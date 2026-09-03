@@ -13,7 +13,7 @@ const adminNav = [
   { to: '/admin/stagiaires',    icon: Users,           label: 'Stagiaires' },
   { to: '/admin/formateurs',    icon: GraduationCap,   label: 'Formateurs' },
   { to: '/admin/filieres',      icon: School,          label: 'Filières & Groupes' },
-  { to: '/admin/modules',       icon: BookOpen,        label: 'Modules' },
+  { to: '/admin/modules',       icon: BookOpen,        label: 'Groupes  & Modules ' },
   { to: '/admin/poles',         icon: Layers,          label: 'Pôles' },
   { to: '/admin/salles',        icon: DoorOpen,        label: 'Salles' },
   { to: '/admin/emplois',       icon: Calendar,        label: 'Emplois du temps' },
@@ -28,7 +28,7 @@ const adminNav = [
 const chefNav = [
   { to: '/chef/dashboard',      icon: LayoutDashboard, label: 'Tableau de bord' },
   { to: '/chef/emplois',        icon: Calendar,        label: 'Emplois du temps' },
-  { to: '/chef/modules',        icon: BookOpen,        label: 'Modules' },
+  { to: '/chef/modules',        icon: BookOpen,        label: 'Groupes  & Modules ' },
   { to: '/chef/formateurs',     icon: GraduationCap,   label: 'Formateurs & affectation' },
   { to: '/chef/statistiques',   icon: BarChart3,       label: 'Statistiques' },
   { to: '/chef/bilans',         icon: FileBarChart,    label: 'Bilans' },
@@ -99,21 +99,33 @@ const LABEL_BY_ROLE = {
   STAGIAIRE: 'Stagiaire',
 }
 
-export default function Sidebar({ collapsed }) {
+export default function Sidebar({ collapsed, mobileOpen, onNavigate }) {
   const { user, logout } = useAuth()
 
   const nav = NAV_BY_ROLE[user?.role] ?? stagiaireNav
   const roleLabel = LABEL_BY_ROLE[user?.role] ?? 'Utilisateur'
 
   return (
-    <aside
-      className={`fixed left-0 top-0 h-full flex flex-col z-40 overflow-hidden
-                  transition-all duration-300 ${collapsed ? 'w-[70px]' : 'w-[260px]'}`}
-      style={{
-        background: 'linear-gradient(185deg, #071e28 0%, #0c3040 35%, #104e60 70%, #071e28 100%)',
-        boxShadow: '4px 0 28px rgba(0,0,0,0.25)',
-      }}
-    >
+    <>
+      {/* Backdrop — mobile uniquement, mlmi l-drawer 7all */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={onNavigate}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed left-0 top-0 h-full flex flex-col z-40 overflow-hidden
+                    transition-all duration-300 w-[260px]
+                    ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+                    md:translate-x-0 ${collapsed ? 'md:w-[70px]' : 'md:w-[260px]'}`}
+        style={{
+          background: 'linear-gradient(185deg, #071e28 0%, #0c3040 35%, #104e60 70%, #071e28 100%)',
+          boxShadow: '4px 0 28px rgba(0,0,0,0.25)',
+        }}
+      >
       <GeometricPattern />
 
       {/* ── Logo ── */}
@@ -148,6 +160,7 @@ export default function Sidebar({ collapsed }) {
           <NavLink
             key={to}
             to={to}
+            onClick={onNavigate}
             title={collapsed ? label : undefined}
             className={({ isActive }) =>
               `relative flex items-center rounded-xl transition-all duration-200 overflow-hidden
@@ -204,6 +217,7 @@ export default function Sidebar({ collapsed }) {
           {!collapsed && <span className="text-sm font-medium">Déconnexion</span>}
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }

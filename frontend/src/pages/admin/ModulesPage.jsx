@@ -144,6 +144,7 @@ export default function ModulesPage() {
   const [filieres, setFilieres]   = useState([])
   const [modules, setModules]     = useState({})
   const [expanded, setExpanded]   = useState({})
+  const [anneeFilter, setAnneeFilter] = useState('')
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
   const [importing, setImporting] = useState(false)
@@ -258,7 +259,11 @@ export default function ModulesPage() {
     } finally { setSaving(false) }
   }
 
-  const totalModules = Object.values(modules).reduce((s, arr) => s + arr.length, 0)
+  const filtreModules = (arr) =>
+    !arr ? arr : anneeFilter ? arr.filter(m => String(m.anneeFormation) === anneeFilter) : arr
+
+  const totalModules = Object.values(modules)
+    .reduce((s, arr) => s + filtreModules(arr).length, 0)
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -293,6 +298,25 @@ export default function ModulesPage() {
         )}
       </div>
 
+      {/* Filtre par année */}
+      <div className="flex rounded-lg border border-warm-200 overflow-hidden text-sm w-fit">
+        {[
+          { value: '',  label: 'Toutes les années' },
+          { value: '1', label: '1ère année' },
+          { value: '2', label: '2ème année' },
+        ].map(f => (
+          <button
+            key={f.value}
+            onClick={() => setAnneeFilter(f.value)}
+            className={`px-3 py-1.5 transition-colors ${
+              anneeFilter === f.value ? 'bg-primary-600 text-white' : 'bg-white text-warm-600 hover:bg-warm-50'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {/* Format Excel */}
       {canCrud && (
         <div className="bg-primary-50 border border-primary-100 rounded-xl p-3 text-xs text-primary-800">
@@ -303,13 +327,7 @@ export default function ModulesPage() {
       )}
 
       {/* Astuce formateur */}
-      {canAssign && (
-        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-800 flex items-center gap-2">
-          <UserCheck size={14} className="flex-shrink-0 text-amber-600" />
-          Cliquez sur <strong>Assigner</strong> dans la colonne Formateur pour affecter un formateur à un module.
-        </div>
-      )}
-
+   
       {/* Liste filières avec modules */}
       {loading ? (
         <Spinner className="mt-16" size="lg" />
@@ -321,7 +339,9 @@ export default function ModulesPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filieres.map(filiere => (
+          {filieres.map(filiere => {
+          const filiereModules = filtreModules(modules[filiere.id])
+          return (
             <div key={filiere.id} className="card overflow-hidden p-0">
 
               {/* En-tête filière */}
@@ -340,9 +360,9 @@ export default function ModulesPage() {
                   </div>
                 </button>
                 <div className="flex items-center gap-3 ml-4">
-                  {modules[filiere.id] && (
+                  {filiereModules && (
                     <span className="text-xs text-warm-400 flex items-center gap-1">
-                      <BookOpen size={13} /> {modules[filiere.id].length} module(s)
+                      <BookOpen size={13} /> {filiereModules.length} module(s)
                     </span>
                   )}
                   {canCrud && (
@@ -362,9 +382,9 @@ export default function ModulesPage() {
                 <div className="border-t border-warm-100">
                   {!modules[filiere.id] ? (
                     <div className="py-6 flex justify-center"><Spinner size="sm" /></div>
-                  ) : modules[filiere.id].length === 0 ? (
+                  ) : filiereModules.length === 0 ? (
                     <div className="py-5 text-center text-warm-400 text-sm">
-                      Aucun module{canCrud && (
+                      {anneeFilter ? 'Aucun module pour cette année' : 'Aucun module'}{canCrud && (
                         <>
                           {' '}—{' '}
                           <button
@@ -391,7 +411,7 @@ export default function ModulesPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-warm-50">
-                          {modules[filiere.id].map(mod => (
+                          {filiereModules.map(mod => (
                             <tr key={mod.id} className="hover:bg-primary-50/30 transition-colors">
                               <td className="px-5 py-2.5 font-mono text-xs text-warm-500">{mod.code || '—'}</td>
                               <td className="px-5 py-2.5 text-warm-800 font-medium max-w-[260px] truncate">{mod.nom}</td>
@@ -458,7 +478,7 @@ export default function ModulesPage() {
                 </div>
               )}
             </div>
-          ))}
+          )})}
         </div>
       )}
 
