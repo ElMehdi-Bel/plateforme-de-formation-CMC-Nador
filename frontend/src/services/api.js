@@ -18,12 +18,18 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// Endpoints d'auth publics : un 401 dessus est une réponse normale
+// (mauvais identifiants / refresh token invalide), pas une session expirée —
+// ne doit jamais déclencher le flux de rafraîchissement ou une redirection forcée.
+const AUTH_ENDPOINTS = ['/auth/login', '/auth/refresh-token']
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config
+    const isAuthEndpoint = AUTH_ENDPOINTS.some(p => original?.url?.includes(p))
 
-    if (error.response?.status === 401 && !original._retry) {
+    if (error.response?.status === 401 && !original._retry && !isAuthEndpoint) {
       original._retry = true
       const refreshToken = localStorage.getItem('refreshToken')
 
