@@ -151,13 +151,16 @@ public class ImportStagiaireService {
 
         // Chercher le groupe existant
         return groupeRepository.findByNomIgnoreCase(nomGroupe).orElseGet(() -> {
-            // Chercher ou créer la filière
+            // Chercher ou créer la filière — la colonne "Filière" du fichier stagiaires
+            // contient souvent un suffixe d'année ("... (1A)") absent du fichier modules ;
+            // on le retire pour toujours retrouver/rattacher la même filière canonique.
+            String nomFiliereNormalise = normaliserNomFiliere(nomFiliere);
             Filiere filiere = null;
-            if (!nomFiliere.isBlank()) {
-                filiere = filiereRepository.findByNomIgnoreCase(nomFiliere)
+            if (!nomFiliereNormalise.isBlank()) {
+                filiere = filiereRepository.findByNomIgnoreCase(nomFiliereNormalise)
                         .orElseGet(() -> filiereRepository.save(
                                 Filiere.builder()
-                                        .nom(truncate(nomFiliere, 300))
+                                        .nom(truncate(nomFiliereNormalise, 300))
                                         .actif(true)
                                         .build()
                         ));
@@ -171,6 +174,7 @@ public class ImportStagiaireService {
 
             Groupe nouveau = Groupe.builder()
                     .nom(truncate(nomGroupe, 100))
+                    .code(truncate(nomGroupe, 50))
                     .anneeFormation(truncate(anneeEtude, 20))
                     .filiere(filiere)
                     .capaciteMax(30)
@@ -178,6 +182,12 @@ public class ImportStagiaireService {
 
             return groupeRepository.save(nouveau);
         });
+    }
+
+    /** Retire un suffixe d'année type " (1A)", "(2A)" en fin de nom de filière. */
+    private String normaliserNomFiliere(String nom) {
+        if (nom == null) return "";
+        return nom.trim().replaceAll("\\s*\\(\\s*\\d[A-Za-z]?\\s*\\)$", "").trim();
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
