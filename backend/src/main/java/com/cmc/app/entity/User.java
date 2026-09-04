@@ -1,6 +1,9 @@
 package com.cmc.app.entity;
 
+import com.cmc.app.enums.ModeFormation;
+import com.cmc.app.enums.NiveauFormation;
 import com.cmc.app.enums.Role;
+import com.cmc.app.enums.TypeFormation;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -75,6 +78,27 @@ public class User implements UserDetails {
 
     @Column(name = "moyenne_bac")
     private Double moyenneBac;
+
+    @Column(name = "date_naissance")
+    private LocalDate dateNaissance;
+
+    @Column(name = "lieu_naissance", length = 100)
+    private String lieuNaissance;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "niveau_formation", length = 30)
+    private NiveauFormation niveauFormation;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "type_formation", length = 30)
+    private TypeFormation typeFormation;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "mode_formation", length = 30)
+    private ModeFormation modeFormation;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)

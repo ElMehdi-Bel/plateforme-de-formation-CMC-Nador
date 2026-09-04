@@ -48,9 +48,20 @@ public class ImportStagiaireService {
         try (Workbook wb = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);
 
+            // Excel laisse souvent des dizaines de milliers de lignes "utilisées"
+            // (mise en forme) bien après les vraies données : on arrête après une
+            // longue série de lignes vides pour éviter un import qui tourne pendant
+            // des heures sur un fichier mal formé.
+            int lignesVidesConsecutives = 0;
+            final int MAX_LIGNES_VIDES_CONSECUTIVES = 200;
+
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (row == null) continue;
+                if (row == null) {
+                    lignesVidesConsecutives++;
+                    if (lignesVidesConsecutives >= MAX_LIGNES_VIDES_CONSECUTIVES) break;
+                    continue;
+                }
 
                 String nom         = get(row, 11);
                 String prenom      = get(row, 12);
@@ -59,7 +70,13 @@ public class ImportStagiaireService {
                 String matricule   = get(row, 8);
 
                 // Ligne vide → ignorer
-                if (nom.isBlank() && prenom.isBlank()) { ignores++; continue; }
+                if (nom.isBlank() && prenom.isBlank()) {
+                    ignores++;
+                    lignesVidesConsecutives++;
+                    if (lignesVidesConsecutives >= MAX_LIGNES_VIDES_CONSECUTIVES) break;
+                    continue;
+                }
+                lignesVidesConsecutives = 0;
 
                 // Choisir l'email de login : OFPPT en priorité, sinon personnel
                 String emailLogin = emailOfppt.isBlank() ? emailPersonnel : emailOfppt;

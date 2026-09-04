@@ -1,6 +1,7 @@
 package com.cmc.app.service;
 
 import com.cmc.app.dto.request.CreateUserRequest;
+import com.cmc.app.dto.request.UpdateUserRequest;
 import com.cmc.app.dto.response.UserResponse;
 import com.cmc.app.entity.Groupe;
 import com.cmc.app.entity.Pole;
@@ -75,6 +76,36 @@ public class UserService {
                 saved.getPrenom() + " " + saved.getNom(),
                 saved.getEmail(),
                 request.getPassword());
+
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public UserResponse updateUser(Long id, UpdateUserRequest request, User admin) {
+        User user = getUserOrThrow(id);
+
+        Groupe groupe = user.getGroupe();
+        if (request.getGroupeId() != null) {
+            groupe = groupeRepository.findById(request.getGroupeId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Groupe non trouvé"));
+        } else {
+            groupe = null;
+        }
+
+        user.setNom(request.getNom());
+        user.setPrenom(request.getPrenom());
+        user.setTelephone(request.getTelephone());
+        user.setGroupe(groupe);
+        user.setDateInscription(request.getDateInscription());
+        user.setDateNaissance(request.getDateNaissance());
+        user.setLieuNaissance(request.getLieuNaissance());
+        user.setNiveauFormation(request.getNiveauFormation());
+        user.setTypeFormation(request.getTypeFormation());
+        user.setModeFormation(request.getModeFormation());
+
+        User saved = userRepository.save(user);
+        auditService.log(admin, "UPDATE_USER", "User", saved.getId(),
+                "Modification utilisateur: " + saved.getEmail());
 
         return toResponse(saved);
     }
@@ -235,6 +266,13 @@ public class UserService {
                 .filiereNom(user.getGroupe() != null && user.getGroupe().getFiliere() != null ? user.getGroupe().getFiliere().getNom() : null)
                 .poleId(user.getPole() != null ? user.getPole().getId() : null)
                 .poleNom(user.getPole() != null ? user.getPole().getNom() : null)
+                .matricule(user.getMatricule())
+                .dateInscription(user.getDateInscription())
+                .dateNaissance(user.getDateNaissance())
+                .lieuNaissance(user.getLieuNaissance())
+                .niveauFormation(user.getNiveauFormation())
+                .typeFormation(user.getTypeFormation())
+                .modeFormation(user.getModeFormation())
                 .createdAt(user.getCreatedAt())
                 .build();
     }

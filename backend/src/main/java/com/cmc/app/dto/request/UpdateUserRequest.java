@@ -1,38 +1,41 @@
-package com.cmc.app.dto.response;
+package com.cmc.app.dto.request;
 
 import com.cmc.app.enums.ModeFormation;
 import com.cmc.app.enums.NiveauFormation;
-import com.cmc.app.enums.Role;
 import com.cmc.app.enums.TypeFormation;
-import lombok.Builder;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Data
-@Builder
-public class UserResponse {
-    private Long id;
+public class UpdateUserRequest {
+
+    @NotBlank(message = "Le nom est obligatoire")
+    @Size(max = 100)
     private String nom;
+
+    @NotBlank(message = "Le prénom est obligatoire")
+    @Size(max = 100)
     private String prenom;
-    private String fullName;
-    private String email;
+
+    @Pattern(regexp = "^$|^[0-9+\\s-]{10,20}$", message = "Format téléphone invalide")
     private String telephone;
-    private Role role;
-    private boolean actif;
+
     private Long groupeId;
-    private String groupeNom;
-    private String groupeCode;
-    private String filiereNom;
-    private String matricule;
+
     private LocalDate dateInscription;
+
     private LocalDate dateNaissance;
+
+    @Size(max = 100)
     private String lieuNaissance;
+
     private NiveauFormation niveauFormation;
+
     private TypeFormation typeFormation;
+
     private ModeFormation modeFormation;
-    private Long poleId;
-    private String poleNom;
-    private LocalDateTime createdAt;
 }

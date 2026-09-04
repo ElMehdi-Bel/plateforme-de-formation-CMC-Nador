@@ -3,6 +3,7 @@ package com.cmc.app.controller;
 import com.cmc.app.dto.request.ChangePasswordRequest;
 import com.cmc.app.dto.request.CreateUserRequest;
 import com.cmc.app.dto.request.UpdateProfileRequest;
+import com.cmc.app.dto.request.UpdateUserRequest;
 import com.cmc.app.dto.response.ApiResponse;
 import com.cmc.app.dto.response.PageResponse;
 import com.cmc.app.dto.response.UserResponse;

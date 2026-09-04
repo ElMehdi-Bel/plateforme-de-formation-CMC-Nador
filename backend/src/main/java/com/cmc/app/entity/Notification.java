@@ -1,6 +1,7 @@
 package com.cmc.app.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -21,11 +22,13 @@ public class Notification {
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "destinataire_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User destinataire;
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "expediteur_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User expediteur;
 
     @Column(nullable = false, length = 200)

@@ -5,6 +5,7 @@ import com.cmc.app.entity.Demande;
 import com.cmc.app.entity.User;
 import com.cmc.app.enums.Role;
 import com.cmc.app.enums.StatutDemande;
+import com.cmc.app.enums.TypeDemande;
 import com.cmc.app.exception.ResourceNotFoundException;
 import com.cmc.app.repository.DemandeRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class DemandeService {
     private final DemandeRepository demandeRepository;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final AttestationPdfService attestationPdfService;
 
     @Value("${app.upload.dir}")
     private String uploadDir;
@@ -55,28 +57,89 @@ public class DemandeService {
     @Transactional
     public Demande traiter(Long id, StatutDemande statut, String commentaire, User admin) {
         Demande demande = getOrThrow(id);
-        demande.setStatut(statut);
+
+        // Génération automatique pour l'attestation de poursuite de formation :
+        // dès l'approbation, le PDF est généré et le document est mis à disposition
+        // du stagiaire sans passer par un upload manuel.
+        if (statut == StatutDemande.APPROUVEE && demande.getTypeDemande() == TypeDemande.ATTESTATION_POURSUITE_FORMATION) {
+            genererEtAttacherAttestation(demande, admin);
+        } else {
+            demande.setStatut(statut);
+        }
+
         demande.setCommentaireAdmin(commentaire);
         demande.setTraitePar(admin);
         demande.setDateTraitement(LocalDateTime.now());
 
         Demande saved = demandeRepository.save(demande);
 
-        String msg = statut == StatutDemande.APPROUVEE
-                ? "Votre demande a été approuvée."
-                : "Votre demande a été rejetée. " + (commentaire != null ? commentaire : "");
-
-        try {
-            notificationService.envoyer(admin, demande.getStagiaire(),
-                    "Demande " + demande.getTypeDemande().name(), msg, "DEMANDE");
-        } catch (Exception ex) {
-            log.warn("Notification non envoyée pour demande {}: {}", id, ex.getMessage());
+        if (saved.getStatut() != StatutDemande.DOCUMENT_PRET) {
+            String msg = statut == StatutDemande.APPROUVEE
+                    ? "Votre demande a été approuvée."
+                    : "Votre demande a été rejetée. " + (commentaire != null ? commentaire : "");
+            try {
+                notificationService.envoyer(admin, demande.getStagiaire(),
+                        "Demande " + demande.getTypeDemande().name(), msg, "DEMANDE");
+            } catch (Exception ex) {
+                log.warn("Notification non envoyée pour demande {}: {}", id, ex.getMessage());
+            }
         }
 
         auditService.log(admin, "TRAITER_DEMANDE", "Demande", id,
                 "Demande " + statut.name() + " pour " + demande.getStagiaire().getFullName());
 
         return saved;
+    }
+
+    private void genererEtAttacherAttestation(Demande demande, User admin) {
+        User stagiaire = demande.getStagiaire();
+        StringBuilder manquants = new StringBuilder();
+        if (stagiaire.getDateNaissance() == null) manquants.append("date de naissance, ");
+        if (stagiaire.getLieuNaissance() == null || stagiaire.getLieuNaissance().isBlank()) manquants.append("lieu de naissance, ");
+        if (stagiaire.getNiveauFormation() == null) manquants.append("niveau de formation, ");
+        if (stagiaire.getTypeFormation() == null) manquants.append("type de formation, ");
+        if (stagiaire.getModeFormation() == null) manquants.append("mode de formation, ");
+        if (stagiaire.getGroupe() == null || stagiaire.getGroupe().getFiliere() == null) manquants.append("groupe/filière, ");
+        if (stagiaire.getDateInscription() == null) manquants.append("date de début de formation, ");
+
+        if (manquants.length() > 0) {
+            String liste = manquants.substring(0, manquants.length() - 2);
+            throw new IllegalStateException(
+                    "Impossible de générer l'attestation : complétez d'abord la fiche du stagiaire (" + liste + ").");
+        }
+
+        byte[] pdf = attestationPdfService.genererAttestationPoursuiteFormation(stagiaire);
+
+        try {
+            Path dirPath = Paths.get(uploadDir, "demandes", String.valueOf(demande.getId())).toAbsolutePath();
+            Files.createDirectories(dirPath);
+
+            String storedName = "attestation_" + demande.getId() + "_" + System.currentTimeMillis() + ".pdf";
+            Path filePath = dirPath.resolve(storedName);
+
+            if (demande.getDocumentUrl() != null) {
+                try { Files.deleteIfExists(Paths.get(demande.getDocumentUrl())); } catch (IOException ignored) {}
+            }
+
+            Files.write(filePath, pdf);
+
+            String nomFichier = "Attestation_Poursuite_Formation_" + stagiaire.getNom() + "_" + stagiaire.getPrenom() + ".pdf";
+            demande.setDocumentUrl(filePath.toString());
+            demande.setDocumentNom(nomFichier);
+            demande.setStatut(StatutDemande.DOCUMENT_PRET);
+
+            try {
+                notificationService.envoyer(admin, stagiaire,
+                        "Attestation disponible",
+                        "Votre attestation de poursuite de formation a été générée. Vous pouvez la télécharger depuis votre espace.",
+                        "DOCUMENT");
+            } catch (Exception ex) {
+                log.warn("Notification non envoyée pour demande {}: {}", demande.getId(), ex.getMessage());
+            }
+        } catch (IOException e) {
+            log.error("Erreur génération attestation pour demande {}: {}", demande.getId(), e.getMessage(), e);
+            throw new RuntimeException("Erreur lors de la sauvegarde de l'attestation : " + e.getMessage(), e);
+        }
     }
 
     @Transactional(readOnly = true)
